@@ -30,7 +30,9 @@ const userMiddleware = async(req, res, next)=>{
             throw new Error("Invalid token");
         }
 
+        // Keep backward compatibility: some routes use `req.result`, others expect `req.user`
         req.result = result;
+        req.user = result;
 
         next();
         

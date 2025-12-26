@@ -6,6 +6,8 @@ const cookieParser = require('cookie-parser');
 const authRouter = require('./routes/user.routes');
 const redisClient = require('./config/redis');
 const cors = require('cors');
+const postRouter = require('./routes/post.route');
+
 
 app.use(cors({
     origin: 'http://localhost:5173',
@@ -15,7 +17,8 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-app.use('/user', authRouter);
+app.use('/api/user', authRouter);
+app.use('/api/posts', postRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

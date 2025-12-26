@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
 import { registerUser } from '../authSlice';
 import { useEffect, useState } from 'react';
+import kamsa from '../assets/kamsalogo.png';
 
 // Schema validation
 const signupSchema = z.object({
@@ -31,7 +32,6 @@ function Signup() {
   // Show backend errors in the form
   useEffect(() => {
     if (error) {
-      // Example: backend error contains "email" keyword
       if (error.toLowerCase().includes('email')) {
         setError('email', { type: 'server', message: error });
       } else {
@@ -45,87 +45,106 @@ function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="w-full max-w-md bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 shadow-2xl hover:shadow-3xl transition-all duration-500">
-        <h3 className="text-2xl font-bold text-white mb-2">Create Account</h3>
-        <p className="text-gray-400 mb-6">Join the Codify-CODE community</p>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-8">
+        <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <img 
+              src={kamsa} 
+              alt="Kamsa Logo" 
+              className="w-24 h-24 cursor-pointer"
+            />
+          </div>
+        </div>
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">Create your account</h2>
+          <p className="text-gray-600">Join our KAMSA community</p>
+        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* First Name */}
           <div>
-            <label className="block text-white/80 text-sm mb-1">First Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              First Name
+            </label>
             <input
               {...register('firstName')}
               type="text"
-              placeholder="Enter your name"
-              className={`w-full px-4 py-2 rounded-lg bg-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 ${
-                errors.firstName ? 'border-red-500 focus:ring-red-500' : 'border-white/20 focus:ring-purple-500'
+              placeholder="Enter your first name"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                errors.firstName ? 'border-red-500' : 'border-gray-300'
               }`}
             />
             {errors.firstName && (
-              <span className="text-red-400 text-sm mt-1 block">{errors.firstName.message}</span>
+              <p className="text-red-600 text-sm mt-1">{errors.firstName.message}</p>
             )}
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-white/80 text-sm mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email address
+            </label>
             <input
               {...register('email')}
               type="email"
-              placeholder="john@example.com"
-              className={`w-full px-4 py-2 rounded-lg bg-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 ${
-                errors.email ? 'border-red-500 focus:ring-red-500' : 'border-white/20 focus:ring-purple-500'
+              placeholder="you@example.com"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                errors.email ? 'border-red-500' : 'border-gray-300'
               }`}
             />
             {errors.email && (
-              <span className="text-red-400 text-sm mt-1 block">{errors.email.message}</span>
+              <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
             )}
           </div>
 
           {/* Password */}
           <div>
-            <label className="block text-white/80 text-sm mb-1">Password</label>
-            <div className="relative">
-              <input
-                {...register('password')}
-                type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
-                className={`w-full px-4 py-2 rounded-lg bg-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 ${
-                  errors.password ? 'border-red-500 focus:ring-red-500' : 'border-white/20 focus:ring-purple-500'
-                } pr-10`}
-              />
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
               <button
                 type="button"
-                className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-400 hover:text-white"
                 onClick={() => setShowPassword(!showPassword)}
+                className="text-sm text-gray-500 hover:text-gray-700"
               >
                 {showPassword ? 'Hide' : 'Show'}
               </button>
             </div>
+            <input
+              {...register('password')}
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Create a password"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                errors.password ? 'border-red-500' : 'border-gray-300'
+              }`}
+            />
             {errors.password && (
-              <span className="text-red-400 text-sm mt-1 block">{errors.password.message}</span>
+              <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
             )}
           </div>
 
           {/* Submit */}
           <button
             type="submit"
-            className={`w-full py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-blue-500 to-purple-600 ${
-              loading ? 'opacity-70 cursor-not-allowed' : 'hover:scale-105 transition-all'
-            }`}
             disabled={loading}
+            className={`w-full py-2 px-4 border border-transparent rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+              loading ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {loading ? 'Creating account...' : 'Create account'}
           </button>
         </form>
 
-        <p className="text-gray-400 text-sm mt-4">
-          Already have an account?{' '}
-          <NavLink to="/login" className="text-blue-400 hover:text-blue-300">
-            Sign In
-          </NavLink>
-        </p>
+        <div className="mt-6 text-center">
+          <p className="text-gray-600 text-sm">
+            Already have an account?{' '}
+            <NavLink to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
+              Sign in
+            </NavLink>
+          </p>
+        </div>
       </div>
     </div>
   );
