@@ -7,6 +7,7 @@ const authRouter = require('./routes/user.routes');
 const redisClient = require('./config/redis');
 const cors = require('cors');
 const postRouter = require('./routes/post.route');
+const profileRouter = require('./routes/profile.routes');
 
 
 app.use(cors({
@@ -17,8 +18,9 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-app.use('/api/user', authRouter);
-app.use('/api/posts', postRouter);
+app.use('/user', authRouter);
+app.use('/posts', postRouter);
+app.use('/profile', profileRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -36,7 +38,7 @@ const initializedConnection = async () => {
         console.log("✅ Redis connected...");
         
         // Start server
-        const PORT = process.env.PORT || 3000;
+        const PORT = process.env.PORT;
         app.listen(PORT, () => {
             console.log(`✅ Server listening at http://localhost:${PORT}`);
         });
