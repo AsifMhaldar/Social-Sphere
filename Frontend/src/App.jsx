@@ -11,6 +11,8 @@ import Messages from './pages/Messages';
 import Community from './pages/Community';
 import Trending from './pages/Trending';
 import Profile from './pages/Profile';
+import Edit from './Components/Edit';
+
 
 function App() {
   const dispatch = useDispatch();
@@ -36,13 +38,13 @@ function App() {
       <Route path="/login" element={isAuthenticated ? <Navigate to="/home" /> : <Login />} />
 
       <Route path="/home" element={isAuthenticated ? <Home /> : <Navigate to="/login" />} />
-
+      <Route path='/edit' element={isAuthenticated ? <Edit/> : <Navigate to='/edit'/>} />
       <Route path="/explore" element={isAuthenticated ? <Explore /> : <Navigate to="/login" />} />
       <Route path="/notifications" element={isAuthenticated ? <Notifications /> : <Navigate to="/login" />} />
       <Route path="/messages" element={isAuthenticated ? <Messages /> : <Navigate to="/login" />} />
       <Route path="/community" element={isAuthenticated ? <Community /> : <Navigate to="/login" />} />
       <Route path="/trending" element={isAuthenticated ? <Trending /> : <Navigate to="/login" />} />
-      <Route path="/profile" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />
+      <Route path="/profile/:userId" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" />} />

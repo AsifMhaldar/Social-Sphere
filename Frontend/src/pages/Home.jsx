@@ -6,6 +6,7 @@ import PostUpload from "../Components/PostUpload";
 import { useSelector, useDispatch } from "react-redux";
 import { logoutUser } from "../authSlice";
 import kamsa from '../assets/kamsalogo.png'
+import { NavLink } from "react-router";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -132,7 +133,7 @@ export default function Home() {
                   </div>
                 )}
 
-                <span className="text-sm text-gray-700"><strong>{user.firstName}</strong></span>
+                <NavLink to={`/profile/${user._id}`} className="text-sm text-gray-700"><strong>{user.firstName}</strong></NavLink>
                 <button onClick={() => dispatch(logoutUser())} className="text-sm text-red-600">Logout</button>
               </>
             ) : (
