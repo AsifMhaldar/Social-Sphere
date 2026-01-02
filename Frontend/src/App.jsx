@@ -11,7 +11,8 @@ import Messages from './pages/Messages';
 import Community from './pages/Community';
 import Trending from './pages/Trending';
 import Profile from './pages/Profile';
-import Edit from './Components/Edit';
+import Edit from './pages/Edit';
+import GetUseProfile from './pages/GetUseProfile';
 
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
       <Route path="/community" element={isAuthenticated ? <Community /> : <Navigate to="/login" />} />
       <Route path="/trending" element={isAuthenticated ? <Trending /> : <Navigate to="/login" />} />
       <Route path="/profile/:userId" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />
+      <Route path="/getUserProfile/:userId" element={isAuthenticated ? <GetUseProfile /> : <Navigate to="/login" />} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" />} />

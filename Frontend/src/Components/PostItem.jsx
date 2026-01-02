@@ -112,7 +112,7 @@ export default function PostItem({ post, onLike, onComment, onEdit }) {
             <div>
               {/* ✅ Use userId from post data, NOT from useParams() */}
               {userId ? (
-                <NavLink to={`/profile/${userId}`} className="font-semibold text-gray-900 hover:text-blue-600">
+                <NavLink to={`/getUserProfile/${userId}`} className="font-semibold text-gray-900 hover:text-blue-600">
                   {username}
                 </NavLink>
               ) : (

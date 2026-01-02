@@ -2,183 +2,177 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axiosClient from '../utils/axiosClient';
 
-function Profile() {
+function GetUserProfile() {
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [postsLoading, setPostsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [followLoading, setFollowLoading] = useState(false);
   const [likingPosts, setLikingPosts] = useState({});
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [editForm, setEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    bio: '',
-    profilePic: ''
-  });
   const { userId } = useParams();
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || userId === 'undefined') {
       setError("User ID not found in URL");
       setLoading(false);
       return;
     }
-
+    
     Promise.all([
       fetchProfile(userId),
-      fetchPosts(userId)
+      fetchUserPosts(userId)
     ]).finally(() => {
       setLoading(false);
     });
   }, [userId]);
 
-  // Fetch user profile info
   const fetchProfile = async (id) => {
     try {
-      const response = await axiosClient.get(`/profile/getProfile/${id}`);
+      const response = await axiosClient.get(`/profile/getUserProfile/${id}`);
       setProfile(response.data);
-      // Initialize edit form with current data
-      if (response.data.user) {
-        setEditForm({
-          firstName: response.data.user.firstName || '',
-          lastName: response.data.user.lastName || '',
-          bio: response.data.user.bio || '',
-          profilePic: response.data.user.profilePic || ''
-        });
-      }
     } catch (error) {
       setError(error.response?.data?.message || "Failed to load profile");
     }
   };
 
-  // Fetch user's posts
-  const fetchPosts = async (id) => {
+  // Fetch user's posts using the correct route
+  const fetchUserPosts = async (id) => {
     setPostsLoading(true);
     try {
-      const response = await axiosClient.get(`/profile/getUserPosts/${id}`);
+      // Use the correct route: /posts/user/:id/posts
+      const response = await axiosClient.get(`/posts/user/${id}/posts`);
       
+      // Handle response
       let postsData = [];
-      if (response.data && Array.isArray(response.data.posts)) {
-        postsData = response.data.posts;
-      } else if (Array.isArray(response.data)) {
+      if (Array.isArray(response.data)) {
         postsData = response.data;
+      } else if (response.data && Array.isArray(response.data.posts)) {
+        postsData = response.data.posts;
       }
       
-      const transformedPosts = postsData.map(post => ({
-        ...post,
-        isLiked: post.isLiked || false,
-        likesCount: post.likesCount || post.likes?.length || 0,
-        commentsCount: post.commentsCount || post.comments?.length || 0,
-      }));
-      
-      setPosts(transformedPosts);
+      setPosts(postsData);
     } catch (error) {
-      console.error("Error fetching posts:", error);
-      setPosts([]);
+      console.error("Error fetching user posts:", error);
+      // Fallback to old endpoint if new one fails
+      try {
+        const fallbackResponse = await axiosClient.get(`/profile/getUserPosts/${id}`);
+        const fallbackData = fallbackResponse.data.posts || fallbackResponse.data;
+        if (Array.isArray(fallbackData)) {
+          setPosts(fallbackData);
+        }
+      } catch (fallbackError) {
+        console.error("Fallback also failed:", fallbackError);
+      }
     } finally {
       setPostsLoading(false);
     }
   };
 
-  // Like/Unlike post
+  // Like/Unlike a post
   const handleLike = async (postId) => {
     if (likingPosts[postId]) return;
     
     setLikingPosts(prev => ({ ...prev, [postId]: true }));
     
     try {
+      // Optimistically update UI
       setPosts(prevPosts => 
         prevPosts.map(post => {
           if (post._id === postId) {
-            const wasLiked = post.isLiked;
+            const wasLiked = post.isLiked || false;
             return {
               ...post,
               isLiked: !wasLiked,
-              likesCount: wasLiked ? post.likesCount - 1 : post.likesCount + 1
+              likesCount: wasLiked ? (post.likesCount || 0) - 1 : (post.likesCount || 0) + 1
             };
           }
           return post;
         })
       );
 
+      // Call like API
       await axiosClient.put(`/posts/${postId}/like`);
       
     } catch (error) {
       console.error("Error toggling like:", error);
+      // Revert on error
       setPosts(prevPosts => 
         prevPosts.map(post => {
           if (post._id === postId) {
             return {
               ...post,
               isLiked: !post.isLiked,
-              likesCount: post.isLiked ? post.likesCount + 1 : post.likesCount - 1
+              likesCount: post.isLiked ? (post.likesCount || 0) + 1 : (post.likesCount || 0) - 1
             };
           }
           return post;
         })
       );
-      alert(error.response?.data?.message || "Failed to toggle like");
     } finally {
       setLikingPosts(prev => ({ ...prev, [postId]: false }));
     }
   };
 
-  // Update profile
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    if (!userId || editLoading) return;
+  // Follow the other user
+  const handleFollow = async () => {
+    if (!userId || followLoading) return;
     
-    setEditLoading(true);
+    setFollowLoading(true);
     try {
-      const response = await axiosClient.put(`/profile/updateProfile/${userId}`, editForm);
+      await axiosClient.post(`/profile/follow/${userId}`);
       
-      // Update local state with new profile data
+      // Update UI immediately
       setProfile(prev => ({
         ...prev,
         user: {
           ...prev.user,
-          firstName: response.data.firstName || editForm.firstName,
-          lastName: response.data.lastName || editForm.lastName,
-          bio: response.data.bio || editForm.bio,
-          profilePic: response.data.profilePic || editForm.profilePic
+          isFollowing: true,
+          followersCount: (prev.user.followersCount || 0) + 1
         }
       }));
       
-      setShowEditModal(false);
-      alert("Profile updated successfully!");
-      
     } catch (error) {
-      console.error("Error updating profile:", error);
-      alert(error.response?.data?.message || "Failed to update profile");
+      alert(error.response?.data?.message || "Failed to follow user");
+      fetchProfile(userId);
     } finally {
-      setEditLoading(false);
+      setFollowLoading(false);
     }
   };
 
-  // Handle edit form input change
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Unfollow the other user
+  const handleUnfollow = async () => {
+    if (!userId || followLoading) return;
+    
+    setFollowLoading(true);
+    try {
+      await axiosClient.post(`/profile/unfollow/${userId}`);
+      
+      // Update UI immediately
+      setProfile(prev => ({
+        ...prev,
+        user: {
+          ...prev.user,
+          isFollowing: false,
+          followersCount: Math.max(0, (prev.user.followersCount || 0) - 1)
+        }
+      }));
+      
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to unfollow user");
+      fetchProfile(userId);
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
   // Refresh posts
   const refreshPosts = () => {
     if (userId) {
-      fetchPosts(userId);
+      fetchUserPosts(userId);
     }
   };
 
-  // Open edit modal
-  const openEditModal = () => {
-    setShowEditModal(true);
-  };
-
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
@@ -190,7 +184,6 @@ function Profile() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
@@ -227,17 +220,29 @@ function Profile() {
                     </h1>
                   </div>
                   
-                  {/* Update Profile Button (only show if it's user's own profile) */}
-                  {profile.isOwnProfile && (
-                    <button
-                      onClick={openEditModal}
-                      className="mt-4 md:mt-0 px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
-                    >
-                      Edit Profile
-                    </button>
+                  {/* Follow/Unfollow Button */}
+                  {!profile.isOwnProfile && (
+                    profile.user?.isFollowing ? (
+                      <button
+                        onClick={handleUnfollow}
+                        disabled={followLoading}
+                        className="mt-4 md:mt-0 px-6 py-2 rounded-full bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 disabled:opacity-50"
+                      >
+                        {followLoading ? 'Processing...' : 'Following'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleFollow}
+                        disabled={followLoading}
+                        className="mt-4 md:mt-0 px-6 py-2 rounded-full bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                      >
+                        {followLoading ? 'Processing...' : 'Follow'}
+                      </button>
+                    )
                   )}
                 </div>
                 
+                {/* Stats */}
                 <div className="flex justify-center md:justify-start gap-6 mb-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-white">{profile.user?.postCount || posts.length}</div>
@@ -253,8 +258,17 @@ function Profile() {
                   </div>
                 </div>
                 
+                {/* Bio */}
                 {profile.user?.bio && (
                   <p className="text-gray-300 mb-4">{profile.user.bio}</p>
+                )}
+                
+                {/* Follow Status */}
+                {profile.user?.isFollowing && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-900/30">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-green-400">You follow this user</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -287,6 +301,7 @@ function Profile() {
                     key={post._id} 
                     className="bg-gray-900/50 backdrop-blur-lg rounded-xl p-4 border border-gray-800 hover:border-purple-700 transition-colors"
                   >
+                    {/* Post Image/Media */}
                     {post.mediaUrl && (
                       <div className="mb-3 rounded-lg overflow-hidden">
                         {post.mediaType === 'image' ? (
@@ -305,6 +320,7 @@ function Profile() {
                       </div>
                     )}
                     
+                    {/* Caption */}
                     <div className="mb-3">
                       {post.caption && (
                         <p className="text-gray-400 text-sm">
@@ -315,8 +331,10 @@ function Profile() {
                       )}
                     </div>
                     
+                    {/* Post Stats */}
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <div className="flex items-center gap-4">
+                        {/* Like Button */}
                         <button 
                           onClick={() => handleLike(post._id)}
                           disabled={likingPosts[post._id]}
@@ -340,6 +358,7 @@ function Profile() {
                           )}
                         </button>
                         
+                        {/* Comment Button */}
                         <button className="flex items-center gap-1 hover:text-blue-500 transition-colors">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -376,100 +395,8 @@ function Profile() {
           <p className="text-gray-500">Unable to load profile information</p>
         </div>
       )}
-
-      {/* Edit Profile Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-md w-full border border-purple-900/50">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Edit Profile</h2>
-              <button 
-                onClick={() => setShowEditModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <form onSubmit={handleUpdateProfile}>
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">First Name</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={editForm.firstName}
-                    onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">Last Name</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={editForm.lastName}
-                    onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">Bio</label>
-                  <textarea
-                    name="bio"
-                    value={editForm.bio}
-                    onChange={handleEditChange}
-                    rows="3"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    placeholder="Tell us about yourself..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">Profile Picture URL</label>
-                  <input
-                    type="text"
-                    name="profilePic"
-                    value={editForm.profilePic}
-                    onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    placeholder="https://example.com/your-image.jpg"
-                  />
-                  <p className="text-gray-400 text-xs mt-1">Enter a URL for your profile picture</p>
-                </div>
-              </div>
-              
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={editLoading}
-                  className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                >
-                  {editLoading ? (
-                    <span className="flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Updating...
-                    </span>
-                  ) : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-export default Profile;
+export default GetUserProfile;
