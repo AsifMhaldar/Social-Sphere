@@ -205,25 +205,24 @@ const getUserPosts = async(req, res) =>{
 const getProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const currentUserId = req.user?.id; // Now req.user exists due to middleware
+    const currentUserId = req.user?.id;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid user id" });
+      return res.status(400).json({ message: "Invalid user ID" });
     }
 
+    // Get user with basic info
     const user = await User.findById(id)
-      .select("_id firstName lastName email followers following postCount profilePic views bio createdAt")
+      .select("_id firstName lastName email profilePic bio followers following postCount views createdAt")
       .lean();
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Get user's posts
-    const posts = await Post.find({ user: id })
-      .sort({ createdAt: -1 })
-      .populate("user", "firstName lastName profilePic");
-
+    // Check if it's own profile
+    const isOwnProfile = currentUserId && currentUserId.toString() === id.toString();
+    
     // Check if current user follows this profile
     const isFollowing = currentUserId
       ? user.followers.some(followerId => 
@@ -231,10 +230,8 @@ const getProfile = async (req, res) => {
         )
       : false;
 
-    // Calculate counts
-    const followersCount = user.followers?.length || 0;
-    const followingCount = user.following?.length || 0;
-    const postCount = posts.length;
+    // Get posts count (you can also get limited posts here if needed)
+    const postCount = await Post.countDocuments({ user: id });
 
     res.status(200).json({
       user: {
@@ -245,18 +242,18 @@ const getProfile = async (req, res) => {
         profilePic: user.profilePic,
         bio: user.bio,
         views: user.views || 0,
-        followersCount,
-        followingCount,
-        postCount,
+        followersCount: user.followers?.length || 0,
+        followingCount: user.following?.length || 0,
+        postCount: postCount,
         isFollowing,
         createdAt: user.createdAt
       },
-      posts
+      isOwnProfile
     });
 
   } catch (error) {
-    console.error("Profile Controller Error:", error);
-    res.status(500).json({ message: "Failed to get profile" });
+    console.error("Profile error:", error);
+    res.status(500).json({ message: "Failed to fetch profile" });
   }
 };
 
@@ -327,6 +324,65 @@ const getSuggestedUsers = async(req, res)=>{
   }
 }
 
+const getUserProfile = async(req, res)=>{
+
+  try{
+    const {id} = req.params;
+    const currentUserId = req.user?.id;
+
+    if(!mongoose.Types.ObjectId.isValid(id)){
+      return res.status(404).send("Invalid user profile id");
+    }
+
+    const user = await User.findById(id)
+      .select("_id firstName lastName followers following postCount profilePic views bio createdAt")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get user's posts
+    const posts = await Post.find({ user: id })
+      .sort({ createdAt: -1 })
+      .populate("user", "firstName lastName profilePic");
+
+    const isFollowing = currentUserId
+      ? user.followers.some(followerId => 
+          followerId.toString() === currentUserId.toString()
+        )
+      : false;
+
+    // Calculate counts
+    const followersCount = user.followers?.length || 0;
+    const followingCount = user.following?.length || 0;
+    const postCount = posts.length;
+
+    res.status(200).json({
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profilePic: user.profilePic,
+        bio: user.bio,
+        views: user.views || 0,
+        followersCount,
+        followingCount,
+        postCount,
+        isFollowing,
+        createdAt: user.createdAt
+      },
+      posts
+    });
+    
+  }catch(error){
+    res.status(500).send("Failed to fetch user profile");
+  }
+}
+
+
+
 module.exports = { getProfile, getAllProfiles, updateProfile, followUser, 
-  unfollowUser, getUserPosts, getFollowers, getFollowing, getSuggestedUsers
+  unfollowUser, getUserPosts, getFollowers, getFollowing, getSuggestedUsers, getUserProfile
 };

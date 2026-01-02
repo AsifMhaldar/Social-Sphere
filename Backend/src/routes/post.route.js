@@ -9,11 +9,12 @@ const {
   deletePost,
   getFeed,
   likePost,
+  getUserPosts,
+  getPost,
   cloudinaryWebhook
 } = require('../controllers/post.controller');
 
 const { commentOnPost } = require('../controllers/commentOnPost');
-// const { validateComment } = require('../middleware/validateComment');
 
 // Create post (photo/video)
 postRouter.post('/', userMiddleware, upload.single('media'), createPost);
@@ -29,5 +30,11 @@ postRouter.put('/:id/like', userMiddleware, likePost);
 
 // Get feed
 postRouter.get('/feed', userMiddleware, getFeed);
+
+// Get user posts (for profile page) - ✅ NEW ROUTE
+postRouter.get('/user/:id/posts', userMiddleware, getUserPosts);
+
+// Get single post with details - ✅ NEW ROUTE
+postRouter.get('/:id', userMiddleware, getPost);
 
 module.exports = postRouter;

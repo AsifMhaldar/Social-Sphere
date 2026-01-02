@@ -11,11 +11,14 @@ const {
     getUserPosts,
     getFollowers,
     getFollowing,
-    getSuggestedUsers
+    getSuggestedUsers,
+    getUserProfile,
+    getLikes
 } = require('../controllers/profile.controller');
 
 
 profileRouter.get('/getProfile/:id',userMiddleware, getProfile);
+profileRouter.get('/getUserProfile/:id', userMiddleware, getUserProfile);  // this is fined the particular user like if i go on my page then suggested people are also there so i want the profile that people, that why i am writing this route 
 profileRouter.get('/getAllProfiles', getAllProfiles);
 profileRouter.put('/updateProfile/:id',userMiddleware, updateProfile);
 profileRouter.post('/follow/:id',userMiddleware, followUser);
