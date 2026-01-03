@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import axiosClient from '../utils/axiosClient';
+import Navbar from '../Components/Navbar'; // Import Navbar
 
 function Profile() {
   const [profile, setProfile] = useState(null);
@@ -9,15 +11,11 @@ function Profile() {
   const [postsLoading, setPostsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [likingPosts, setLikingPosts] = useState({});
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [editForm, setEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    bio: '',
-    profilePic: ''
-  });
   const { userId } = useParams();
+  const navigate = useNavigate();
+  
+  // Get user from Redux
+  const { user, isAuthenticated } = useSelector((s) => s.auth);
 
   useEffect(() => {
     if (!userId) {
@@ -39,15 +37,6 @@ function Profile() {
     try {
       const response = await axiosClient.get(`/profile/getProfile/${id}`);
       setProfile(response.data);
-      // Initialize edit form with current data
-      if (response.data.user) {
-        setEditForm({
-          firstName: response.data.user.firstName || '',
-          lastName: response.data.user.lastName || '',
-          bio: response.data.user.bio || '',
-          profilePic: response.data.user.profilePic || ''
-        });
-      }
     } catch (error) {
       setError(error.response?.data?.message || "Failed to load profile");
     }
@@ -125,45 +114,9 @@ function Profile() {
     }
   };
 
-  // Update profile
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    if (!userId || editLoading) return;
-    
-    setEditLoading(true);
-    try {
-      const response = await axiosClient.put(`/profile/updateProfile/${userId}`, editForm);
-      
-      // Update local state with new profile data
-      setProfile(prev => ({
-        ...prev,
-        user: {
-          ...prev.user,
-          firstName: response.data.firstName || editForm.firstName,
-          lastName: response.data.lastName || editForm.lastName,
-          bio: response.data.bio || editForm.bio,
-          profilePic: response.data.profilePic || editForm.profilePic
-        }
-      }));
-      
-      setShowEditModal(false);
-      alert("Profile updated successfully!");
-      
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      alert(error.response?.data?.message || "Failed to update profile");
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  // Handle edit form input change
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Navigate to edit page
+  const handleEditProfile = () => {
+    navigate(`/edit/${userId}`);
   };
 
   // Refresh posts
@@ -173,18 +126,13 @@ function Profile() {
     }
   };
 
-  // Open edit modal
-  const openEditModal = () => {
-    setShowEditModal(true);
-  };
-
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Loading profile...</p>
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading profile...</p>
         </div>
       </div>
     );
@@ -193,281 +141,203 @@ function Profile() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Error</h2>
-          <p className="text-gray-300">{error}</p>
-          <p className="text-gray-400 mt-2">User ID: {userId || "Not provided"}</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Error</h2>
+          <p className="text-gray-600">{error}</p>
+          <p className="text-gray-500 mt-2">User ID: {userId || "Not provided"}</p>
+          <button 
+            onClick={() => navigate('/')}
+            className="mt-4 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Go Home
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
-      {profile ? (
-        <div className="max-w-4xl mx-auto">
-          {/* Profile Header */}
-          <div className="bg-gray-900/50 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-purple-900/30 shadow-2xl">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="relative">
-                <img 
-                  src={profile.user?.profilePic || "https://via.placeholder.com/150"} 
-                  alt={`${profile.user?.firstName}'s profile`}
-                  className="w-32 h-32 rounded-full border-4 border-purple-600 object-cover"
-                />
-              </div>
-              
-              <div className="flex-1 text-center md:text-left">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                  <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">
-                      {profile.user?.firstName} {profile.user?.lastName}
-                    </h1>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Use Navbar component */}
+        <Navbar />
+        
+        {profile ? (
+          <>
+            {/* Profile Header */}
+            <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-200 shadow-sm">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="relative">
+                  <img 
+                    src={profile.user?.profilePic || "https://via.placeholder.com/150"} 
+                    alt={`${profile.user?.firstName}'s profile`}
+                    className="w-32 h-32 rounded-full border-4 border-blue-500 object-cover"
+                  />
+                </div>
+                
+                <div className="flex-1 text-center md:text-left">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <div>
+                      <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                        {profile.user?.firstName} {profile.user?.lastName}
+                      </h1>
+                    </div>
+                    
+                    {/* Update Profile Button (only show if it's user's own profile) */}
+                    {profile.isOwnProfile && (
+                      <button
+                        onClick={handleEditProfile}
+                        className="mt-4 md:mt-0 px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Profile
+                      </button>
+                    )}
                   </div>
                   
-                  {/* Update Profile Button (only show if it's user's own profile) */}
-                  {profile.isOwnProfile && (
-                    <button
-                      onClick={openEditModal}
-                      className="mt-4 md:mt-0 px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
-                    >
-                      Edit Profile
-                    </button>
+                  <div className="flex justify-center md:justify-start gap-6 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">{profile.user?.postCount || posts.length}</div>
+                      <div className="text-gray-500 text-sm">Posts</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">{profile.user?.followersCount || 0}</div>
+                      <div className="text-gray-500 text-sm">Followers</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">{profile.user?.followingCount || 0}</div>
+                      <div className="text-gray-500 text-sm">Following</div>
+                    </div>
+                  </div>
+                  
+                  {profile.user?.bio && (
+                    <p className="text-gray-600 mb-4">{profile.user.bio}</p>
                   )}
                 </div>
-                
-                <div className="flex justify-center md:justify-start gap-6 mb-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{profile.user?.postCount || posts.length}</div>
-                    <div className="text-gray-400 text-sm">Posts</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{profile.user?.followersCount || 0}</div>
-                    <div className="text-gray-400 text-sm">Followers</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{profile.user?.followingCount || 0}</div>
-                    <div className="text-gray-400 text-sm">Following</div>
-                  </div>
-                </div>
-                
-                {profile.user?.bio && (
-                  <p className="text-gray-300 mb-4">{profile.user.bio}</p>
-                )}
               </div>
             </div>
-          </div>
 
-          {/* Posts Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">
-                Posts ({posts.length})
-              </h2>
-              <button 
-                onClick={refreshPosts}
-                disabled={postsLoading}
-                className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm disabled:opacity-50"
-              >
-                {postsLoading ? 'Refreshing...' : 'Refresh Posts'}
-              </button>
-            </div>
-            
-            {postsLoading ? (
-              <div className="text-center py-12">
-                <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-300">Loading posts...</p>
-              </div>
-            ) : posts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {posts.map((post) => (
-                  <div 
-                    key={post._id} 
-                    className="bg-gray-900/50 backdrop-blur-lg rounded-xl p-4 border border-gray-800 hover:border-purple-700 transition-colors"
-                  >
-                    {post.mediaUrl && (
-                      <div className="mb-3 rounded-lg overflow-hidden">
-                        {post.mediaType === 'image' ? (
-                          <img 
-                            src={post.mediaUrl} 
-                            alt="Post" 
-                            className="w-full h-48 object-cover"
-                          />
-                        ) : post.mediaType === 'video' ? (
-                          <video 
-                            src={post.mediaUrl}
-                            className="w-full h-48 object-cover"
-                            controls
-                          />
-                        ) : null}
-                      </div>
-                    )}
-                    
-                    <div className="mb-3">
-                      {post.caption && (
-                        <p className="text-gray-400 text-sm">
-                          {post.caption.length > 100 
-                            ? `${post.caption.substring(0, 100)}...` 
-                            : post.caption}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <div className="flex items-center gap-4">
-                        <button 
-                          onClick={() => handleLike(post._id)}
-                          disabled={likingPosts[post._id]}
-                          className="flex items-center gap-1 hover:text-red-500 transition-colors"
-                          title={post.isLiked ? 'Unlike' : 'Like'}
-                        >
-                          {post.isLiked ? (
-                            <svg className="w-5 h-5 text-red-500 fill-current" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/>
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                            </svg>
-                          )}
-                          <span className={post.isLiked ? 'text-red-500' : ''}>
-                            {post.likesCount || 0}
-                          </span>
-                          {likingPosts[post._id] && (
-                            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin ml-1"></div>
-                          )}
-                        </button>
-                        
-                        <button className="flex items-center gap-1 hover:text-blue-500 transition-colors">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                          <span>{post.commentsCount || 0}</span>
-                        </button>
-                      </div>
-                      <span className="text-gray-400">
-                        {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Unknown date'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="text-gray-500 text-6xl mb-4">📝</div>
-                <h3 className="text-xl text-gray-300 mb-2">No posts yet</h3>
-                <p className="text-gray-500">This user hasn't created any posts</p>
+            {/* Posts Section */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Posts ({posts.length})
+                </h2>
                 <button 
                   onClick={refreshPosts}
-                  className="mt-4 px-6 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
+                  disabled={postsLoading}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-50"
                 >
-                  Check Again
+                  {postsLoading ? 'Refreshing...' : 'Refresh Posts'}
                 </button>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <div className="text-gray-500 text-6xl mb-4">😕</div>
-          <h3 className="text-xl text-gray-300 mb-2">No profile data</h3>
-          <p className="text-gray-500">Unable to load profile information</p>
-        </div>
-      )}
-
-      {/* Edit Profile Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-md w-full border border-purple-900/50">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Edit Profile</h2>
-              <button 
-                onClick={() => setShowEditModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <form onSubmit={handleUpdateProfile}>
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">First Name</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={editForm.firstName}
-                    onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">Last Name</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={editForm.lastName}
-                    onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">Bio</label>
-                  <textarea
-                    name="bio"
-                    value={editForm.bio}
-                    onChange={handleEditChange}
-                    rows="3"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    placeholder="Tell us about yourself..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">Profile Picture URL</label>
-                  <input
-                    type="text"
-                    name="profilePic"
-                    value={editForm.profilePic}
-                    onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    placeholder="https://example.com/your-image.jpg"
-                  />
-                  <p className="text-gray-400 text-xs mt-1">Enter a URL for your profile picture</p>
-                </div>
               </div>
               
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={editLoading}
-                  className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                >
-                  {editLoading ? (
-                    <span className="flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Updating...
-                    </span>
-                  ) : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+              {postsLoading ? (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading posts...</p>
+                </div>
+              ) : posts.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {posts.map((post) => (
+                    <div 
+                      key={post._id} 
+                      className="bg-white rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors shadow-sm"
+                    >
+                      {post.mediaUrl && (
+                        <div className="mb-3 rounded-lg overflow-hidden">
+                          {post.mediaType === 'image' ? (
+                            <img 
+                              src={post.mediaUrl} 
+                              alt="Post" 
+                              className="w-full h-48 object-cover"
+                            />
+                          ) : post.mediaType === 'video' ? (
+                            <video 
+                              src={post.mediaUrl}
+                              className="w-full h-48 object-cover"
+                              controls
+                            />
+                          ) : null}
+                        </div>
+                      )}
+                      
+                      <div className="mb-3">
+                        {post.caption && (
+                          <p className="text-gray-600 text-sm">
+                            {post.caption.length > 100 
+                              ? `${post.caption.substring(0, 100)}...` 
+                              : post.caption}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-4">
+                          <button 
+                            onClick={() => handleLike(post._id)}
+                            disabled={likingPosts[post._id]}
+                            className="flex items-center gap-1 hover:text-red-500 transition-colors"
+                            title={post.isLiked ? 'Unlike' : 'Like'}
+                          >
+                            {post.isLiked ? (
+                              <svg className="w-5 h-5 text-red-500 fill-current" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/>
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                              </svg>
+                            )}
+                            <span className={post.isLiked ? 'text-red-500' : ''}>
+                              {post.likesCount || 0}
+                            </span>
+                            {likingPosts[post._id] && (
+                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin ml-1"></div>
+                            )}
+                          </button>
+                          
+                          <button className="flex items-center gap-1 hover:text-blue-500 transition-colors">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <span>{post.commentsCount || 0}</span>
+                          </button>
+                        </div>
+                        <span className="text-gray-400">
+                          {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Unknown date'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 text-6xl mb-4">📝</div>
+                  <h3 className="text-xl text-gray-600 mb-2">No posts yet</h3>
+                  <p className="text-gray-500">This user hasn't created any posts</p>
+                  <button 
+                    onClick={refreshPosts}
+                    className="mt-4 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Check Again
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-6xl mb-4">😕</div>
+            <h3 className="text-xl text-gray-600 mb-2">No profile data</h3>
+            <p className="text-gray-500">Unable to load profile information</p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

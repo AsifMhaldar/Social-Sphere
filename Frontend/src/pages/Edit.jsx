@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosClient from '../utils/axiosClient';
 
@@ -15,7 +15,14 @@ function Edit() {
     bio: '',
     profilePic: ''
   });
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' or 'posts'
+  
+  // File upload states
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  
+  const fileInputRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('profile');
   const { userId } = useParams();
   const navigate = useNavigate();
 
@@ -47,6 +54,8 @@ function Edit() {
           bio: profileResponse.data.user.bio || '',
           profilePic: profileResponse.data.user.profilePic || ''
         });
+        // Set preview URL
+        setPreviewUrl(profileResponse.data.user.profilePic || '');
       }
 
       // Set user posts
@@ -64,6 +73,39 @@ function Edit() {
     }
   };
 
+  // Handle file selection when user clicks on profile picture
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (JPEG, PNG, GIF, WebP)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size should be less than 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // Create preview URL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Trigger file input click
+  const handleProfilePicClick = () => {
+    fileInputRef.current.click();
+  };
+
   // Handle edit form input change
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -73,36 +115,60 @@ function Edit() {
     }));
   };
 
-  // Update profile
+  // Update profile with file upload
   const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    if (!userId || editLoading) return;
+  e.preventDefault();
+  if (!userId || editLoading) return;
+  
+  setEditLoading(true);
+  
+  try {
+    const formData = new FormData();
     
-    setEditLoading(true);
-    try {
-      const response = await axiosClient.put(`/profile/updateProfile/${userId}`, editForm);
-      
-      // Update local profile state
-      setProfile(prev => ({
-        ...prev,
-        user: {
-          ...prev.user,
-          firstName: response.data.firstName || editForm.firstName,
-          lastName: response.data.lastName || editForm.lastName,
-          bio: response.data.bio || editForm.bio,
-          profilePic: response.data.profilePic || editForm.profilePic
-        }
-      }));
-      
-      alert("Profile updated successfully!");
-      
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      alert(error.response?.data?.message || "Failed to update profile");
-    } finally {
-      setEditLoading(false);
+    // Add text fields
+    formData.append('firstName', editForm.firstName);
+    formData.append('lastName', editForm.lastName);
+    formData.append('bio', editForm.bio);
+    
+    // Add file if selected, otherwise add the URL
+    if (selectedFile) {
+      formData.append('profilePic', selectedFile);
+    } else if (editForm.profilePic) {
+      formData.append('profilePic', editForm.profilePic);
     }
-  };
+
+    console.log('Sending FormData with file:', !!selectedFile);
+
+    const response = await axiosClient.put(`/profile/updateProfile/${userId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    // Update local state
+    setProfile(prev => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        firstName: response.data.firstName,
+        lastName: response.data.lastName,
+        bio: response.data.bio,
+        profilePic: response.data.profilePic
+      }
+    }));
+    
+    setPreviewUrl(response.data.profilePic);
+    setSelectedFile(null);
+    
+    alert("Profile updated successfully!");
+    
+  } catch (error) {
+    console.error("Update error:", error);
+    alert(error.response?.data?.message || "Failed to update profile");
+  } finally {
+    setEditLoading(false);
+  }
+};
 
   // Delete post
   const handleDeletePost = async (postId) => {
@@ -149,10 +215,10 @@ function Edit() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Loading...</p>
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading...</p>
         </div>
       </div>
     );
@@ -160,14 +226,14 @@ function Edit() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Error</h2>
-          <p className="text-gray-300">{error}</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Error</h2>
+          <p className="text-gray-600">{error}</p>
           <button 
             onClick={() => navigate('/')}
-            className="mt-4 px-6 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
+            className="mt-4 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
           >
             Go Home
           </button>
@@ -177,13 +243,13 @@ function Edit() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Edit Profile & Posts</h1>
-            <p className="text-gray-400">Manage your profile and posts</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Edit Profile & Posts</h1>
+            <p className="text-gray-600">Manage your profile and posts</p>
           </div>
           
           <div className="flex gap-3 mt-4 md:mt-0">
@@ -195,7 +261,7 @@ function Edit() {
             </button>
             <button
               onClick={refreshData}
-              className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
             >
               Refresh
             </button>
@@ -203,20 +269,20 @@ function Edit() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-800 mb-6">
+        <div className="flex border-b border-gray-200 mb-6">
           <button
             onClick={() => setActiveTab('profile')}
             className={`px-4 py-3 font-medium ${activeTab === 'profile' 
-              ? 'text-white border-b-2 border-purple-500' 
-              : 'text-gray-400 hover:text-gray-300'}`}
+              ? 'text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-500 hover:text-gray-700'}`}
           >
             Profile Settings
           </button>
           <button
             onClick={() => setActiveTab('posts')}
             className={`px-4 py-3 font-medium ${activeTab === 'posts' 
-              ? 'text-white border-b-2 border-purple-500' 
-              : 'text-gray-400 hover:text-gray-300'}`}
+              ? 'text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-500 hover:text-gray-700'}`}
           >
             Manage Posts ({userPosts.length})
           </button>
@@ -224,89 +290,157 @@ function Edit() {
 
         {/* Profile Edit Section */}
         {activeTab === 'profile' && (
-          <div className="bg-gray-900/50 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-purple-900/30">
-            <h2 className="text-2xl font-bold text-white mb-6">Edit Profile</h2>
+          <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-200 shadow-sm">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Profile</h2>
             
             <form onSubmit={handleUpdateProfile}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Profile Picture Upload Section */}
+                <div className="md:col-span-2">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Profile Picture</label>
+                  
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-4">
+                    {/* Clickable Profile Picture */}
+                    <div className="relative group cursor-pointer" onClick={handleProfilePicClick}>
+                      <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-gray-200 group-hover:border-blue-500 transition-all">
+                        <img 
+                          src={previewUrl || editForm.profilePic || "https://via.placeholder.com/150"} 
+                          alt="Profile preview"
+                          className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                        />
+                      </div>
+                      {/* Camera icon overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-2">Click on the profile picture to upload a new one</p>
+                          <button
+                            type="button"
+                            onClick={handleProfilePicClick}
+                            className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            {selectedFile ? 'Change Image' : 'Upload Image'}
+                          </button>
+                        </div>
+                        
+                        {selectedFile && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <p className="text-sm text-green-700 font-medium">
+                              ✓ New image selected: {selectedFile.name}
+                            </p>
+                            <p className="text-xs text-green-600 mt-1">
+                              Click "Save Changes" to upload and update your profile
+                            </p>
+                          </div>
+                        )}
+                        
+                        {uploading && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                              <p className="text-sm text-blue-700">Uploading image...</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600 mb-2">Or enter a URL:</p>
+                    <input
+                      type="text"
+                      name="profilePic"
+                      value={editForm.profilePic}
+                      onChange={handleEditChange}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="https://example.com/your-image.jpg"
+                    />
+                    <p className="text-gray-500 text-xs mt-1">
+                      Supported formats: JPEG, PNG, GIF, WebP | Max size: 5MB
+                    </p>
+                  </div>
+                </div>
+                
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">First Name *</label>
+                  <label className="block text-gray-700 text-sm font-medium mb-2">First Name *</label>
                   <input
                     type="text"
                     name="firstName"
                     value={editForm.firstName}
                     onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">Last Name *</label>
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Last Name *</label>
                   <input
                     type="text"
                     name="lastName"
                     value={editForm.lastName}
                     onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
                 
                 <div className="md:col-span-2">
-                  <label className="block text-gray-300 text-sm mb-2">Bio</label>
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Bio</label>
                   <textarea
                     name="bio"
                     value={editForm.bio}
                     onChange={handleEditChange}
                     rows="4"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Tell us about yourself..."
                   />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-gray-300 text-sm mb-2">Profile Picture URL</label>
-                  <input
-                    type="text"
-                    name="profilePic"
-                    value={editForm.profilePic}
-                    onChange={handleEditChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    placeholder="https://example.com/your-image.jpg"
-                  />
-                  <div className="mt-3 flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-700">
-                      <img 
-                        src={editForm.profilePic || "https://via.placeholder.com/150"} 
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <p className="text-gray-400 text-sm">
-                      Enter a URL for your profile picture. Current preview shown.
-                    </p>
-                  </div>
+                  <p className="text-gray-500 text-xs mt-1">Share something about yourself (max 500 characters)</p>
                 </div>
               </div>
               
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={goToProfile}
-                  className="px-6 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-white"
+                  className="px-6 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
+
+                  onClick={goToProfile}
                   type="submit"
-                  disabled={editLoading}
-                  className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                  disabled={editLoading || uploading}
+                  className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {editLoading ? (
                     <span className="flex items-center justify-center">
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                       Saving...
+                    </span>
+                  ) : uploading ? (
+                    <span className="flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Uploading...
                     </span>
                   ) : 'Save Changes'}
                 </button>
@@ -315,24 +449,24 @@ function Edit() {
           </div>
         )}
 
-        {/* Posts Management Section */}
+        {/* Posts Management Section (unchanged from your original code) */}
         {activeTab === 'posts' && (
-          <div className="bg-gray-900/50 backdrop-blur-lg rounded-2xl p-6 border border-purple-900/30">
+          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Manage Your Posts</h2>
-              <div className="text-gray-400">
+              <h2 className="text-2xl font-bold text-gray-900">Manage Your Posts</h2>
+              <div className="text-gray-600">
                 {userPosts.length} post{userPosts.length !== 1 ? 's' : ''}
               </div>
             </div>
             
             {userPosts.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-gray-500 text-6xl mb-4">📝</div>
-                <h3 className="text-xl text-gray-300 mb-2">No posts yet</h3>
+                <div className="text-gray-400 text-6xl mb-4">📝</div>
+                <h3 className="text-xl text-gray-600 mb-2">No posts yet</h3>
                 <p className="text-gray-500 mb-6">You haven't created any posts</p>
                 <button 
                   onClick={() => navigate('/create-post')}
-                  className="px-6 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
+                  className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Create Your First Post
                 </button>
@@ -342,7 +476,7 @@ function Edit() {
                 {userPosts.map((post) => (
                   <div 
                     key={post._id} 
-                    className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-purple-700 transition-colors"
+                    className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors"
                   >
                     {/* Post Media */}
                     {post.mediaUrl && (
@@ -366,14 +500,14 @@ function Edit() {
                     {/* Post Info */}
                     <div className="mb-4">
                       {post.caption && (
-                        <p className="text-gray-300 text-sm mb-2">
+                        <p className="text-gray-600 text-sm mb-2">
                           {post.caption.length > 80 
                             ? `${post.caption.substring(0, 80)}...` 
                             : post.caption}
                         </p>
                       )}
                       
-                      <div className="flex items-center justify-between text-xs text-gray-400">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
                         <div className="flex items-center gap-4">
                           <span className="flex items-center gap-1">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -396,20 +530,20 @@ function Edit() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => navigate(`/post/${post._id}`)}
-                        className="flex-1 px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm"
+                        className="flex-1 px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm"
                       >
                         View
                       </button>
                       <button
                         onClick={() => navigate(`/edit-post/${post._id}`)}
-                        className="flex-1 px-3 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white text-sm"
+                        className="flex-1 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeletePost(post._id)}
                         disabled={deleteLoading[post._id]}
-                        className="flex-1 px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white text-sm disabled:opacity-50"
+                        className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm disabled:opacity-50"
                       >
                         {deleteLoading[post._id] ? (
                           <span className="flex items-center justify-center">
@@ -420,40 +554,6 @@ function Edit() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-            
-            {/* Stats Summary */}
-            {userPosts.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-gray-800">
-                <h3 className="text-lg font-semibold text-white mb-4">Posts Summary</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-800/50 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-white">{userPosts.length}</div>
-                    <div className="text-gray-400 text-sm">Total Posts</div>
-                  </div>
-                  <div className="bg-gray-800/50 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-white">
-                      {userPosts.reduce((total, post) => total + (post.likesCount || 0), 0)}
-                    </div>
-                    <div className="text-gray-400 text-sm">Total Likes</div>
-                  </div>
-                  <div className="bg-gray-800/50 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-white">
-                      {userPosts.reduce((total, post) => total + (post.commentsCount || 0), 0)}
-                    </div>
-                    <div className="text-gray-400 text-sm">Total Comments</div>
-                  </div>
-                  <div className="bg-gray-800/50 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-white">
-                      {userPosts.length > 0 
-                        ? new Date(Math.max(...userPosts.map(p => new Date(p.createdAt)))) 
-                            .toLocaleDateString()
-                        : 'N/A'}
-                    </div>
-                    <div className="text-gray-400 text-sm">Last Post</div>
-                  </div>
-                </div>
               </div>
             )}
           </div>
