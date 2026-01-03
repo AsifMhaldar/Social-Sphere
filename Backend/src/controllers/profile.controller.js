@@ -44,22 +44,35 @@ const getAllProfiles = async(req, res)=>{
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, bio, profilePic } = req.body;
+    const { firstName, lastName, bio } = req.body;
 
     if (req.user.id !== id && req.user.role !== "admin") {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
+    // Prepare update data
+    const updateData = {};
+    
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (bio) updateData.bio = bio;
+    
+    // If file was uploaded, update profilePic
+    if (req.file) {
+      // Generate URL for the uploaded file
+      const fileUrl = `${req.protocol}://${req.get('host')}/uploads/profile-pics/${req.file.filename}`;
+      updateData.profilePic = fileUrl;
+      console.log('File uploaded:', req.file.filename);
+    } else if (req.body.profilePic) {
+      // If profilePic is provided in body (as URL), use it
+      updateData.profilePic = req.body.profilePic;
+    }
+
+    console.log('Updating user with data:', updateData);
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      {
-        $set: {
-          ...(firstName && { firstName }),
-          ...(lastName && { lastName }),
-          ...(bio && { bio }),
-          ...(profilePic && { profilePic }),
-        },
-      },
+      { $set: updateData },
       { new: true }
     ).select("_id firstName lastName profilePic bio");
 
@@ -70,8 +83,8 @@ const updateProfile = async (req, res) => {
     res.status(200).json(updatedUser);
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to update profile" });
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Failed to update profile", error: error.message });
   }
 };
 
