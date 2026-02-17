@@ -24,7 +24,8 @@ const commentRouter = require("./routes/comment.routes");
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.NETLIFY_FRONTEND,
+    // origin: "http://localhost:5173",
     credentials: true,
   })
 );
