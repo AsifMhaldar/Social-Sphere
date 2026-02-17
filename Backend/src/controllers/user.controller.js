@@ -162,6 +162,20 @@ const adminRegister = async(req, res)=>{
 
 }
 
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find(
+      { _id: { $ne: req.result._id } }, // exclude logged in user
+      "firstName email profilePic"
+    );
+
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 
 // const deleteProfile = async(req, res)=>{
 
@@ -182,4 +196,4 @@ const adminRegister = async(req, res)=>{
 // }
 
 
-module.exports = {register, login, logout, adminRegister};
+module.exports = {register, login, logout, adminRegister, getAllUsers};

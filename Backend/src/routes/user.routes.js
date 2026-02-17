@@ -1,7 +1,7 @@
 const express = require('express');
 
 const authRouter = express.Router();
-const {register, login, logout, adminRegister} = require("../controllers/user.controller");
+const {register, login, logout, adminRegister, getAllUsers} = require("../controllers/user.controller");
 const userMiddleware = require('../middleware/user.middleware');
 const adminMiddleware = require('../middleware/admin.middleware');
 
@@ -10,7 +10,8 @@ const adminMiddleware = require('../middleware/admin.middleware');
 authRouter.post("/register", register)
 authRouter.post("/login", login)
 authRouter.post("/logout", userMiddleware, logout)
-authRouter.post("/admin/register", adminMiddleware,adminRegister); 
+authRouter.post("/admin/register", adminMiddleware,adminRegister);
+authRouter.get("/all", userMiddleware, getAllUsers); 
 // authRouter.delete("/deleteProfile", userMiddleware, deleteProfile);
 authRouter.get('/check', userMiddleware, (req, res)=>{
 

@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
 import { registerUser } from '../authSlice';
 import { useEffect, useState } from 'react';
-import kamsa from '../assets/kamsalogo.png';
+import SocialSphere from '../assets/SocialSphere.png';
 
 // Schema validation
 const signupSchema = z.object({
@@ -50,15 +50,15 @@ function Signup() {
         <div className="text-center">
           <div className="flex justify-center mb-4">
             <img 
-              src={kamsa} 
-              alt="Kamsa Logo" 
+              src={SocialSphere} 
+              alt="SocialSphere Logo" 
               className="w-24 h-24 cursor-pointer"
             />
           </div>
         </div>
         <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-800 mb-2">Create your account</h2>
-          <p className="text-gray-600">Join our KAMSA community</p>
+          <p className="text-gray-600">Join our SocialSphere community</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

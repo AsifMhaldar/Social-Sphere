@@ -13,6 +13,7 @@ import Trending from './pages/Trending';
 import Profile from './pages/Profile';
 import Edit from './pages/Edit';
 import GetUseProfile from './pages/GetUseProfile';
+import Saved from './pages/Saved';
 
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
       <Route path="/notifications" element={isAuthenticated ? <Notifications /> : <Navigate to="/login" />} />
       <Route path="/messages" element={isAuthenticated ? <Messages /> : <Navigate to="/login" />} />
       <Route path="/reels" element={isAuthenticated ? <Community /> : <Navigate to="/login" />} />
+      <Route path="/saved" element={isAuthenticated ? <Saved /> : <Navigate to="/login" />} />
       <Route path="/search" element={isAuthenticated ? <Community /> : <Navigate to="/login" />} />
       <Route path="/trending" element={isAuthenticated ? <Trending /> : <Navigate to="/login" />} />
       <Route path="/profile/:userId" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />

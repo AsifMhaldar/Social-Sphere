@@ -11,7 +11,6 @@ const {
   likePost,
   getUserPosts,
   getPost,
-  cloudinaryWebhook
 } = require('../controllers/post.controller');
 
 const { commentOnPost } = require('../controllers/commentOnPost');

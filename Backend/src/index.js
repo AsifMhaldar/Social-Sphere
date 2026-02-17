@@ -1,61 +1,75 @@
-const express = require('express');
+const express = require("express");
+const http = require("http");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+
+require("dotenv").config();
+
+
+
 const app = express();
-require('dotenv').config();
-const main = require('./config/db');
-const cookieParser = require('cookie-parser');
-const authRouter = require('./routes/user.routes');
-const redisClient = require('./config/redis');
-const cors = require('cors');
-const postRouter = require('./routes/post.route');
-const profileRouter = require('./routes/profile.routes');
+const server = http.createServer(app); // 🔥 IMPORTANT
+
+const main = require("./config/db");
+const redisClient = require("./config/redis");
+
+const authRouter = require("./routes/user.routes");
+const postRouter = require("./routes/post.route");
+const profileRouter = require("./routes/profile.routes");
+const chatRouter = require("./routes/chat.routes");
+const initializeSocket = require("./socket/socket");
+const commentRouter = require("./routes/comment.routes");
 
 
-app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true
-}));
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static("uploads"));
 
-app.use('/uploads', express.static('uploads'));
 
-app.use('/user', authRouter);
-app.use('/posts', postRouter);
-app.use('/profile', profileRouter);
+app.use("/user", authRouter);
+app.use("/posts", postRouter);
+app.use("/profile", profileRouter);
+app.use("/chat", chatRouter);
+app.use("/comments", commentRouter);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Server is running' });
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", message: "Server is running" });
 });
 
-const initializedConnection = async () => {
-    try {
-        // Connect to MongoDB
-        await main();
-        console.log("✅ MongoDB connected...");
-        
-        // Connect to Redis
-        await redisClient.connect();
-        console.log("✅ Redis connected...");
-        
-        // Start server
-        const PORT = process.env.PORT;
-        app.listen(PORT, () => {
-            console.log(`✅ Server listening at http://localhost:${PORT}`);
-        });
 
-    } catch(err) {
-        console.error("❌ Connection Error:", err.message);
-        console.error("Full Error:", err);
-        process.exit(1);
-    }
-}
+const startServer = async () => {
+  try {
+    await main();
+    console.log("✅ MongoDB connected");
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-    console.error('❌ Unhandled Rejection:', err);
+    await redisClient.connect();
+    console.log("✅ Redis connected");
+
+    initializeSocket(server);
+
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      console.log(`✅ Server running at http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error("❌ Startup error:", err);
     process.exit(1);
+  }
+};
+
+// Global error safety
+process.on("unhandledRejection", (err) => {
+  console.error("❌ Unhandled Rejection:", err);
+  process.exit(1);
 });
 
-initializedConnection();
+startServer();
