@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
 import { registerUser } from '../authSlice';
 import { useEffect, useState } from 'react';
-import SocialSphere from '../assets/SocialSphere.png';
+import SocialSphere from '../assets/socialsphere.png';
 
 // Schema validation
 const signupSchema = z.object({

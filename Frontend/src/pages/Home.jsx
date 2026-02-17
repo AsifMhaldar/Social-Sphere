@@ -3,7 +3,7 @@ import API from "../utils/axiosClient";
 import PostItem from "../Components/PostItem";
 import PostUpload from "../Components/PostUpload";
 import { useSelector } from "react-redux";
-import SocialSphere from "../assets/SocialSphere.png";
+import SocialSphere from "../assets/socialsphere.png";
 import { NavLink } from "react-router-dom";
 import {
   Home as HomeIcon,

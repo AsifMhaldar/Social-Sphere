@@ -3,7 +3,7 @@ import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { logoutUser } from '../authSlice';
 import { useNavigate, NavLink } from 'react-router-dom';
-import SocialSphere from '../assets/SocialSphere.png';
+import SocialSphere from '../assets/socialsphere.png';
 
 function Navbar() {
   const { user, isAuthenticated } = useSelector((s) => s.auth);
