@@ -5,6 +5,7 @@ export default function CallModal({
   user,
   friend,
   callType,
+  incomingOffer, // 🔥 IMPORTANT
   isOpen,
   onClose,
 }) {
@@ -16,7 +17,6 @@ export default function CallModal({
   const ringtoneRef = useRef(null);
 
   const [callTimer, setCallTimer] = useState(0);
-  const [incomingCall, setIncomingCall] = useState(null);
   const [callAccepted, setCallAccepted] = useState(false);
   const [isRinging, setIsRinging] = useState(false);
 
@@ -25,16 +25,26 @@ export default function CallModal({
   };
 
   // =============================
-  // OUTGOING CALL
+  // INITIALIZE CALL
   // =============================
   useEffect(() => {
     if (!isOpen) return;
 
-    startOutgoingCall();
+    if (incomingOffer) {
+      // 🔥 RECEIVER SIDE
+      setIsRinging(true);
+      if (ringtoneRef.current) ringtoneRef.current.play();
+    } else {
+      // 🔥 CALLER SIDE
+      startOutgoingCall();
+    }
 
     return () => cleanup();
   }, [isOpen]);
 
+  // =============================
+  // OUTGOING CALL
+  // =============================
   const startOutgoingCall = async () => {
     try {
       localStream.current = await navigator.mediaDevices.getUserMedia({
@@ -81,19 +91,60 @@ export default function CallModal({
   };
 
   // =============================
+  // ACCEPT CALL (RECEIVER)
+  // =============================
+  const acceptCall = async () => {
+    setCallAccepted(true);
+    setIsRinging(false);
+    if (ringtoneRef.current) ringtoneRef.current.pause();
+
+    localStream.current = await navigator.mediaDevices.getUserMedia({
+      video: callType === "video",
+      audio: true,
+    });
+
+    if (localVideoRef.current)
+      localVideoRef.current.srcObject = localStream.current;
+
+    peerConnection.current = new RTCPeerConnection(servers);
+
+    localStream.current.getTracks().forEach((track) => {
+      peerConnection.current.addTrack(track, localStream.current);
+    });
+
+    peerConnection.current.ontrack = (event) => {
+      remoteVideoRef.current.srcObject = event.streams[0];
+    };
+
+    peerConnection.current.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("iceCandidate", {
+          toUserId: friend._id,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    await peerConnection.current.setRemoteDescription(
+      new RTCSessionDescription(incomingOffer)
+    );
+
+    const answer = await peerConnection.current.createAnswer();
+    await peerConnection.current.setLocalDescription(answer);
+
+    socket.emit("answerCall", {
+      toUserId: friend._id,
+      answer,
+    });
+
+    startTimer();
+  };
+
+  // =============================
   // SOCKET LISTENERS
   // =============================
   useEffect(() => {
-    socket.on("incomingCall", ({ fromUserId, offer, callType }) => {
-      setIncomingCall({ fromUserId, offer, callType });
-      setIsRinging(true);
-
-      if (ringtoneRef.current) {
-        ringtoneRef.current.play();
-      }
-    });
-
-    socket.on("callAnswered", async ({ answer }) => {
+    socket.on("callAccepted", async ({ answer }) => {
       setIsRinging(false);
       setCallAccepted(true);
 
@@ -118,72 +169,11 @@ export default function CallModal({
     });
 
     return () => {
-      socket.off("incomingCall");
-      socket.off("callAnswered");
+      socket.off("callAccepted");
       socket.off("iceCandidate");
       socket.off("callEnded");
     };
   }, []);
-
-  // =============================
-  // ACCEPT CALL
-  // =============================
-  const acceptCall = async () => {
-    setCallAccepted(true);
-    setIsRinging(false);
-
-    if (ringtoneRef.current) ringtoneRef.current.pause();
-
-    localStream.current = await navigator.mediaDevices.getUserMedia({
-      video: incomingCall.callType === "video",
-      audio: true,
-    });
-
-    if (localVideoRef.current)
-      localVideoRef.current.srcObject = localStream.current;
-
-    peerConnection.current = new RTCPeerConnection(servers);
-
-    localStream.current.getTracks().forEach((track) => {
-      peerConnection.current.addTrack(track, localStream.current);
-    });
-
-    peerConnection.current.ontrack = (event) => {
-      remoteVideoRef.current.srcObject = event.streams[0];
-    };
-
-    peerConnection.current.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("iceCandidate", {
-          toUserId: incomingCall.fromUserId,
-          candidate: event.candidate,
-        });
-      }
-    };
-
-    await peerConnection.current.setRemoteDescription(
-      new RTCSessionDescription(incomingCall.offer)
-    );
-
-    const answer = await peerConnection.current.createAnswer();
-    await peerConnection.current.setLocalDescription(answer);
-
-    socket.emit("answerCall", {
-      toUserId: incomingCall.fromUserId,
-      answer,
-    });
-
-    startTimer();
-  };
-
-  // =============================
-  // REJECT CALL
-  // =============================
-  const rejectCall = () => {
-    socket.emit("endCall", { toUserId: incomingCall.fromUserId });
-    cleanup();
-    onClose();
-  };
 
   // =============================
   // TIMER
@@ -207,7 +197,6 @@ export default function CallModal({
     clearInterval(timerRef.current);
     setCallTimer(0);
     setCallAccepted(false);
-    setIncomingCall(null);
     setIsRinging(false);
 
     if (peerConnection.current) peerConnection.current.close();
@@ -223,42 +212,35 @@ export default function CallModal({
     onClose();
   };
 
-  if (!isOpen && !incomingCall) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-white z-50">
-      
-      {/* 🔔 Ring Sound */}
+
       <audio
         ref={ringtoneRef}
         src="https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg"
         loop
       />
 
-      {/* Incoming Call UI */}
-      {incomingCall && !callAccepted && (
-        <>
-          <h2 className="text-xl mb-6">Incoming {incomingCall.callType} Call</h2>
-
-          <div className="flex gap-6">
-            <button
-              onClick={acceptCall}
-              className="bg-green-600 px-6 py-3 rounded-full"
-            >
-              Accept
-            </button>
-
-            <button
-              onClick={rejectCall}
-              className="bg-red-600 px-6 py-3 rounded-full"
-            >
-              Reject
-            </button>
-          </div>
-        </>
+      {/* Ringing UI */}
+      {isRinging && !callAccepted && (
+        <h2 className="text-xl mb-6">
+          {incomingOffer ? "Incoming Call..." : "Calling..."}
+        </h2>
       )}
 
-      {/* Active Call UI */}
+      {/* Receiver Accept Button */}
+      {incomingOffer && isRinging && !callAccepted && (
+        <button
+          onClick={acceptCall}
+          className="bg-green-600 px-6 py-3 rounded-full mb-4"
+        >
+          Accept
+        </button>
+      )}
+
+      {/* Active Call */}
       {callAccepted && (
         <>
           <h2 className="mb-4 text-lg">{formatTime()}</h2>
@@ -286,11 +268,6 @@ export default function CallModal({
             End Call
           </button>
         </>
-      )}
-
-      {/* Outgoing Ring UI */}
-      {isRinging && !incomingCall && !callAccepted && (
-        <h2 className="text-xl">Calling...</h2>
       )}
     </div>
   );

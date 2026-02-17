@@ -33,6 +33,9 @@ export default function Messages() {
 
   const [showCallModal, setShowCallModal] = useState(false);
   const [selectedCallType, setSelectedCallType] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [callTypeIncoming, setCallTypeIncoming] = useState(null);
+
 
 
   // Auto scroll to bottom
@@ -102,12 +105,32 @@ export default function Messages() {
       );
     });
 
+    // =============================
+    // 🔥 INCOMING CALL LISTENER
+    // =============================
+    socket.on("incomingCall", ({ fromUserId, offer, callType }) => {
+      setIncomingCall({ fromUserId, offer });
+      setCallTypeIncoming(callType);
+    });
+
+    // =============================
+    // 🔥 CALL ENDED LISTENER
+    // =============================
+    socket.on("callEnded", () => {
+      setIncomingCall(null);
+      setShowCallModal(false);
+    });
+
+
     return () => {
       socket.off("getOnlineUsers");
       socket.off("receiveMessage");
       socket.off("typing");
       socket.off("messageSeen");
+      socket.off("incomingCall");
+      socket.off("callEnded");
     };
+
   }, [currentChat]);
 
   // =============================
@@ -284,6 +307,21 @@ export default function Messages() {
   const startCall = (type) => {
     setSelectedCallType(type);
     setShowCallModal(true);
+  };
+
+  // 🔥 ACCEPT CALL
+  const acceptCall = () => {
+    setSelectedCallType(callTypeIncoming);
+    setShowCallModal(true);
+    setIncomingCall(null);
+  };
+
+  // 🔥 REJECT CALL
+  const rejectCall = () => {
+    socket.emit("endCall", {
+      toUserId: incomingCall.fromUserId,
+    });
+    setIncomingCall(null);
   };
 
 
@@ -609,11 +647,45 @@ export default function Messages() {
         )}
       </div>
 
-      {showCallModal && currentChatFriend && (
+      {/* 🔥 INCOMING CALL POPUP */}
+      {incomingCall && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl text-center w-80">
+            <h2 className="text-lg font-semibold mb-4">
+              Incoming {callTypeIncoming} Call
+            </h2>
+
+            <div className="flex justify-center gap-6">
+              <button
+                onClick={acceptCall}
+                className="bg-green-600 text-white px-6 py-2 rounded-full"
+              >
+                Accept
+              </button>
+
+              <button
+                onClick={rejectCall}
+                className="bg-red-600 text-white px-6 py-2 rounded-full"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {showCallModal && (
         <CallModal
           user={user}
-          friend={currentChatFriend}
+          friend={
+            incomingCall
+              ? { _id: incomingCall.fromUserId }
+              : currentChatFriend
+          }
           callType={selectedCallType}
+          incomingOffer={incomingCall?.offer}
           isOpen={showCallModal}
           onClose={() => setShowCallModal(false)}
         />
