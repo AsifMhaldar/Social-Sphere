@@ -10,8 +10,6 @@ import {
 } from "../utils/chatApi";
 import CallModal from "../Components/CallModal.jsx";
 
-
-
 export default function Messages() {
   const user = useSelector((state) => state.auth.user);
 
@@ -23,10 +21,11 @@ export default function Messages() {
   const [typingUser, setTypingUser] = useState(null);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [loading, setLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // For mobile: true = show sidebar, false = show chat
   const [activeTab, setActiveTab] = useState("inbox");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -36,7 +35,20 @@ export default function Messages() {
   const [incomingCall, setIncomingCall] = useState(null);
   const [callTypeIncoming, setCallTypeIncoming] = useState(null);
 
-
+  // Check if mobile on resize
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // On desktop, always show sidebar
+      if (!mobile) {
+        setSidebarOpen(true);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -70,64 +82,63 @@ export default function Messages() {
     loadData();
     const socket = connectSocket();
     if (!socket) return;
-    getSocket()?.("addUser", user._id);
+    getSocket()?.emit("addUser", user._id);
   }, [user]);
 
   // =============================
   // SOCKET EVENTS
   // =============================
   useEffect(() => {
-  const socket = getSocket();
-  if (!socket) return;
+    const socket = getSocket();
+    if (!socket) return;
 
-  socket.on("getOnlineUsers", setOnlineUsers);
+    socket.on("getOnlineUsers", setOnlineUsers);
 
-  socket.on("receiveMessage", (data) => {
-    if (currentChat && data.conversationId === currentChat._id) {
-      setMessages((prev) => [...prev, { ...data, status: "delivered" }]);
-    } else {
-      setUnreadCounts((prev) => ({
-        ...prev,
-        [data.conversationId]: (prev[data.conversationId] || 0) + 1,
-      }));
-    }
-  });
+    socket.on("receiveMessage", (data) => {
+      if (currentChat && data.conversationId === currentChat._id) {
+        setMessages((prev) => [...prev, { ...data, status: "delivered" }]);
+      } else {
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [data.conversationId]: (prev[data.conversationId] || 0) + 1,
+        }));
+      }
+    });
 
-  socket.on("typing", (senderId) => {
-    setTypingUser(senderId);
-    setTimeout(() => setTypingUser(null), 3000);
-  });
+    socket.on("typing", (senderId) => {
+      setTypingUser(senderId);
+      setTimeout(() => setTypingUser(null), 3000);
+    });
 
-  socket.on("messageSeen", ({ conversationId }) => {
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.conversationId === conversationId
-          ? { ...msg, status: "seen" }
-          : msg
-      )
-    );
-  });
+    socket.on("messageSeen", ({ conversationId }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.conversationId === conversationId
+            ? { ...msg, status: "seen" }
+            : msg
+        )
+      );
+    });
 
-  socket.on("incomingCall", ({ fromUserId, offer, callType }) => {
-    setIncomingCall({ fromUserId, offer });
-    setCallTypeIncoming(callType);
-  });
+    socket.on("incomingCall", ({ fromUserId, offer, callType }) => {
+      setIncomingCall({ fromUserId, offer });
+      setCallTypeIncoming(callType);
+    });
 
-  socket.on("callEnded", () => {
-    setIncomingCall(null);
-    setShowCallModal(false);
-  });
+    socket.on("callEnded", () => {
+      setIncomingCall(null);
+      setShowCallModal(false);
+    });
 
-  return () => {
-    socket.off("getOnlineUsers");
-    socket.off("receiveMessage");
-    socket.off("typing");
-    socket.off("messageSeen");
-    socket.off("incomingCall");
-    socket.off("callEnded");
-  };
-}, [currentChat]);
-
+    return () => {
+      socket.off("getOnlineUsers");
+      socket.off("receiveMessage");
+      socket.off("typing");
+      socket.off("messageSeen");
+      socket.off("incomingCall");
+      socket.off("callEnded");
+    };
+  }, [currentChat]);
 
   // =============================
   // OPEN CHAT
@@ -152,7 +163,8 @@ export default function Messages() {
         [convRes.data._id]: 0,
       }));
 
-      if (window.innerWidth < 768) {
+      // On mobile, hide sidebar when chat is opened
+      if (isMobile) {
         setSidebarOpen(false);
       }
       
@@ -167,8 +179,13 @@ export default function Messages() {
     }
   };
 
+  // Go back to sidebar (mobile only)
+  const goBackToSidebar = () => {
+    setSidebarOpen(true);
+  };
+
   // =============================
-  // SEND MESSAGE - FIXED VERSION
+  // SEND MESSAGE
   // =============================
   const handleSend = async (text) => {
     if (!currentChat || !text.trim()) return;
@@ -177,9 +194,8 @@ export default function Messages() {
       (m) => m._id !== user._id
     )?._id;
 
-    // Create temporary message for instant display
     const tempMessage = {
-      _id: Date.now().toString(), // Temporary ID
+      _id: Date.now().toString(),
       conversationId: currentChat._id,
       sender: user._id,
       text: text.trim(),
@@ -187,11 +203,9 @@ export default function Messages() {
       status: 'sent'
     };
 
-    // Add to UI immediately
     setMessages((prev) => [...prev, tempMessage]);
 
     try {
-      // Send to server
       const messageData = {
         conversationId: currentChat._id,
         sender: user._id,
@@ -199,9 +213,7 @@ export default function Messages() {
       };
 
       const res = await sendMessage(messageData);
-      console.log('Message sent successfully:', res);
 
-      // Replace temp message with real one
       setMessages((prev) => 
         prev.map((msg) => 
           msg._id === tempMessage._id 
@@ -210,8 +222,7 @@ export default function Messages() {
         )
       );
 
-      // Emit socket event
-      getSocket()?.("sendMessage", {
+      getSocket()?.emit("sendMessage", {
         conversationId: currentChat._id,
         senderId: user._id,
         receiverId,
@@ -219,7 +230,6 @@ export default function Messages() {
         messageId: res.data._id,
       });
 
-      // If receiver is online, update status after short delay
       if (isUserOnline(receiverId)) {
         setTimeout(() => {
           setMessages((prev) =>
@@ -231,7 +241,6 @@ export default function Messages() {
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      // Mark message as failed
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === tempMessage._id ? { ...msg, status: 'failed' } : msg
@@ -248,7 +257,7 @@ export default function Messages() {
       (m) => m._id !== user._id
     )?._id;
 
-    getSocket()?.("typing", {
+    getSocket()?.emit("typing", {
       senderId: user._id,
       receiverId,
     });
@@ -293,50 +302,35 @@ export default function Messages() {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      setShowCallModal(false);
-    };
-  }, []);
-
-
   const startCall = (type) => {
     setSelectedCallType(type);
     setShowCallModal(true);
   };
 
-  // 🔥 ACCEPT CALL
   const acceptCall = () => {
     setSelectedCallType(callTypeIncoming);
     setShowCallModal(true);
     setIncomingCall(null);
   };
 
-  // 🔥 REJECT CALL
   const rejectCall = () => {
-    getSocket()?.("endCall", {
+    getSocket()?.emit("endCall", {
       toUserId: incomingCall.fromUserId,
     });
     setIncomingCall(null);
   };
 
-
-
   return (
     <div className="flex h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Mobile Sidebar Toggle */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
+      {/* Left Sidebar - Instagram style */}
+      <div 
+        className={`
+          fixed md:relative z-40 h-full w-full md:w-80 bg-white shadow-xl 
+          transition-transform duration-300 ease-in-out
+          ${isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'}
+        `}
       >
-        {sidebarOpen ? '✕' : '☰'}
-      </button>
-
-      {/* Left Sidebar - Modern Design */}
-      <div className={`fixed md:relative z-40 h-full w-80 bg-white shadow-xl transition-transform duration-300 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-      }`}>
-        {/* Profile Header with Gradient */}
+        {/* Profile Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -392,7 +386,7 @@ export default function Messages() {
           </button>
         </div>
 
-        {/* Conversation List */}
+        {/* Conversation/User List */}
         <div className="h-[calc(100vh-200px)] overflow-y-auto">
           {activeTab === "inbox" ? (
             conversations.length > 0 ? (
@@ -405,7 +399,7 @@ export default function Messages() {
                     key={conv._id}
                     onClick={() => openChatWithUser(friend)}
                     className={`flex items-center gap-3 p-4 cursor-pointer transition-all ${
-                      isSelected 
+                      isSelected && !isMobile
                         ? 'bg-indigo-50 border-l-4 border-indigo-600' 
                         : 'hover:bg-gray-50 border-l-4 border-transparent'
                     }`}
@@ -421,7 +415,9 @@ export default function Messages() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center">
                         <p className="font-semibold text-gray-800">{friend?.firstName}</p>
-                        <p className="text-xs text-gray-400">12:45 PM</p>
+                        <p className="text-xs text-gray-400">
+                          {conv.updatedAt ? formatMessageTime(conv.updatedAt) : ''}
+                        </p>
                       </div>
                       <div className="flex justify-between items-center">
                         <p className="text-sm text-gray-500 truncate">
@@ -487,23 +483,27 @@ export default function Messages() {
         </div>
       </div>
 
-      {/* Right Chat Area - Modern Design */}
-      <div className="flex-1 flex flex-col bg-gray-50">
+      {/* Right Chat Area */}
+      <div className={`
+        flex-1 flex flex-col bg-gray-50
+        ${isMobile && sidebarOpen ? 'hidden' : 'flex'}
+      `}>
         {currentChat ? (
           <>
             {/* Chat Header */}
-            {/* Chat Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
               <div className="flex items-center gap-4">
-
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="md:hidden w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
-                >
-                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+                {/* Back button - only visible on mobile */}
+                {isMobile && (
+                  <button
+                    onClick={goBackToSidebar}
+                    className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                  >
+                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
 
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white flex items-center justify-center font-semibold shadow-md">
@@ -514,7 +514,7 @@ export default function Messages() {
                   )}
                 </div>
 
-                <div>
+                <div className="flex-1">
                   <h2 className="font-bold text-gray-800">
                     {currentChatFriend?.firstName} {currentChatFriend?.lastName}
                   </h2>
@@ -529,26 +529,30 @@ export default function Messages() {
                   </p>
                 </div>
 
-                {/* 🔥 ADD THIS PART HERE */}
-                <div className="flex gap-3 ml-auto">
+                {/* Call buttons */}
+                <div className="flex gap-3">
                   <button
                     onClick={() => startCall("audio")}
-                    className="text-xl hover:scale-110 transition"
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-full transition-all"
+                    title="Audio Call"
                   >
-                    📞
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
                   </button>
 
                   <button
                     onClick={() => startCall("video")}
-                    className="text-xl hover:scale-110 transition"
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-full transition-all"
+                    title="Video Call"
                   >
-                    🎥
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
                   </button>
                 </div>
-
               </div>
             </div>
-
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
@@ -622,6 +626,7 @@ export default function Messages() {
             </div>
           </>
         ) : (
+          // No chat selected - show welcome screen
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
             <div className="w-24 h-24 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mb-4">
               <svg className="w-12 h-12 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -630,20 +635,19 @@ export default function Messages() {
             </div>
             <h3 className="text-xl font-semibold text-gray-600 mb-2">Your Messages</h3>
             <p className="text-gray-400 mb-4">Select a conversation to start chatting</p>
-            <button
-              onClick={() => {
-                setSidebarOpen(true);
-                setActiveTab("users");
-              }}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md"
-            >
-              Find People to Chat
-            </button>
+            {isMobile && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md"
+              >
+                View Conversations
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* 🔥 INCOMING CALL POPUP */}
+      {/* Incoming Call Popup */}
       {incomingCall && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-xl text-center w-80">
@@ -654,14 +658,14 @@ export default function Messages() {
             <div className="flex justify-center gap-6">
               <button
                 onClick={acceptCall}
-                className="bg-green-600 text-white px-6 py-2 rounded-full"
+                className="bg-green-600 text-white px-6 py-2 rounded-full hover:bg-green-700 transition-colors"
               >
                 Accept
               </button>
 
               <button
                 onClick={rejectCall}
-                className="bg-red-600 text-white px-6 py-2 rounded-full"
+                className="bg-red-600 text-white px-6 py-2 rounded-full hover:bg-red-700 transition-colors"
               >
                 Reject
               </button>
@@ -670,8 +674,7 @@ export default function Messages() {
         </div>
       )}
 
-
-
+      {/* Call Modal */}
       {showCallModal && (
         <CallModal
           user={user}
@@ -691,8 +694,6 @@ export default function Messages() {
           }}
         />
       )}
-
-
     </div>
   );
 }
