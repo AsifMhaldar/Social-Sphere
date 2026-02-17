@@ -21,7 +21,7 @@ export default function Messages() {
   const [typingUser, setTypingUser] = useState(null);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [loading, setLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // For mobile: true = show sidebar, false = show chat
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("inbox");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -40,7 +40,6 @@ export default function Messages() {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      // On desktop, always show sidebar
       if (!mobile) {
         setSidebarOpen(true);
       }
@@ -141,23 +140,41 @@ export default function Messages() {
   }, [currentChat]);
 
   // =============================
-  // OPEN CHAT
+  // OPEN CHAT - FIXED VERSION
   // =============================
-  const openChatWithUser = async (selectedUser) => {
+  const openChatWithUser = async (selectedUser, event) => {
+    // Prevent event bubbling if event exists
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
+    console.log('Opening chat with user:', selectedUser);
+    
+    if (!selectedUser?._id) {
+      console.error('Invalid user object:', selectedUser);
+      return;
+    }
+
     setLoading(true);
     setSelectedUserId(selectedUser._id);
 
     try {
+      // Create or get existing conversation
       const convRes = await createConversation({
         senderId: user._id,
         receiverId: selectedUser._id,
       });
 
+      console.log('Conversation created/fetched:', convRes.data);
       setCurrentChat(convRes.data);
 
+      // Get messages for this conversation
       const messageRes = await getMessages(convRes.data._id);
+      console.log('Messages loaded:', messageRes.data);
       setMessages(messageRes.data);
 
+      // Reset unread count for this conversation
       setUnreadCounts((prev) => ({
         ...prev,
         [convRes.data._id]: 0,
@@ -179,7 +196,9 @@ export default function Messages() {
     }
   };
 
-  // Go back to sidebar (mobile only)
+  // =============================
+  // GO BACK TO SIDEBAR (MOBILE)
+  // =============================
   const goBackToSidebar = () => {
     setSidebarOpen(true);
   };
@@ -194,6 +213,7 @@ export default function Messages() {
       (m) => m._id !== user._id
     )?._id;
 
+    // Create temporary message for instant display
     const tempMessage = {
       _id: Date.now().toString(),
       conversationId: currentChat._id,
@@ -203,9 +223,11 @@ export default function Messages() {
       status: 'sent'
     };
 
+    // Add to UI immediately
     setMessages((prev) => [...prev, tempMessage]);
 
     try {
+      // Send to server
       const messageData = {
         conversationId: currentChat._id,
         sender: user._id,
@@ -213,7 +235,9 @@ export default function Messages() {
       };
 
       const res = await sendMessage(messageData);
+      console.log('Message sent successfully:', res);
 
+      // Replace temp message with real one
       setMessages((prev) => 
         prev.map((msg) => 
           msg._id === tempMessage._id 
@@ -222,6 +246,7 @@ export default function Messages() {
         )
       );
 
+      // Emit socket event
       getSocket()?.emit("sendMessage", {
         conversationId: currentChat._id,
         senderId: user._id,
@@ -230,6 +255,7 @@ export default function Messages() {
         messageId: res.data._id,
       });
 
+      // If receiver is online, update status after short delay
       if (isUserOnline(receiverId)) {
         setTimeout(() => {
           setMessages((prev) =>
@@ -241,6 +267,7 @@ export default function Messages() {
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      // Mark message as failed
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === tempMessage._id ? { ...msg, status: 'failed' } : msg
@@ -322,7 +349,7 @@ export default function Messages() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Left Sidebar - Instagram style */}
+      {/* Left Sidebar */}
       <div 
         className={`
           fixed md:relative z-40 h-full w-full md:w-80 bg-white shadow-xl 
@@ -397,7 +424,7 @@ export default function Messages() {
                 return (
                   <div
                     key={conv._id}
-                    onClick={() => openChatWithUser(friend)}
+                    onClick={(e) => openChatWithUser(friend, e)}
                     className={`flex items-center gap-3 p-4 cursor-pointer transition-all ${
                       isSelected && !isMobile
                         ? 'bg-indigo-50 border-l-4 border-indigo-600' 
@@ -449,22 +476,29 @@ export default function Messages() {
               filteredUsers.map((u) => (
                 <div
                   key={u._id}
-                  onClick={() => openChatWithUser(u)}
                   className="flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100"
                 >
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 text-white flex items-center justify-center font-semibold shadow-md">
-                      {u.firstName?.charAt(0)}
+                  <div 
+                    className="flex-1 flex items-center gap-3"
+                    onClick={(e) => openChatWithUser(u, e)}
+                  >
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 text-white flex items-center justify-center font-semibold shadow-md">
+                        {u.firstName?.charAt(0)}
+                      </div>
+                      {isUserOnline(u._id) && (
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></span>
+                      )}
                     </div>
-                    {isUserOnline(u._id) && (
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></span>
-                    )}
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">{u.firstName} {u.lastName}</p>
+                      <p className="text-sm text-gray-500">{u.email}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-800">{u.firstName} {u.lastName}</p>
-                    <p className="text-sm text-gray-500">{u.email}</p>
-                  </div>
-                  <button className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                  <button 
+                    onClick={(e) => openChatWithUser(u, e)}
+                    className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
                     Chat
                   </button>
                 </div>
