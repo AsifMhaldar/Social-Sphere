@@ -129,6 +129,24 @@ export default function Home() {
           </div>
         </div>
       </header>
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed top-16 left-0 w-64 h-screen bg-white shadow-lg z-40 p-4">
+          <nav className="space-y-2">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100"
+              >
+                <item.icon />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+      )}
+
 
 
       <div className="flex">
