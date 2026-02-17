@@ -8,6 +8,9 @@ import {
   createConversation,
   getAllUsers,
 } from "../utils/chatApi";
+import CallModal from "../Components/CallModal.jsx";
+
+
 
 export default function Messages() {
   const user = useSelector((state) => state.auth.user);
@@ -27,6 +30,10 @@ export default function Messages() {
   
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [selectedCallType, setSelectedCallType] = useState(null);
+
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -267,6 +274,20 @@ export default function Messages() {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      setShowCallModal(false);
+    };
+  }, []);
+
+
+  const startCall = (type) => {
+    setSelectedCallType(type);
+    setShowCallModal(true);
+  };
+
+
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Mobile Sidebar Toggle */}
@@ -437,8 +458,10 @@ export default function Messages() {
         {currentChat ? (
           <>
             {/* Chat Header */}
+            {/* Chat Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
               <div className="flex items-center gap-4">
+
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="md:hidden w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
@@ -447,7 +470,7 @@ export default function Messages() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                
+
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white flex items-center justify-center font-semibold shadow-md">
                     {currentChatFriend?.firstName?.charAt(0)}
@@ -471,8 +494,27 @@ export default function Messages() {
                     )}
                   </p>
                 </div>
+
+                {/* 🔥 ADD THIS PART HERE */}
+                <div className="flex gap-3 ml-auto">
+                  <button
+                    onClick={() => startCall("audio")}
+                    className="text-xl hover:scale-110 transition"
+                  >
+                    📞
+                  </button>
+
+                  <button
+                    onClick={() => startCall("video")}
+                    className="text-xl hover:scale-110 transition"
+                  >
+                    🎥
+                  </button>
+                </div>
+
               </div>
             </div>
+
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
@@ -566,6 +608,17 @@ export default function Messages() {
           </div>
         )}
       </div>
+
+      {showCallModal && currentChatFriend && (
+        <CallModal
+          user={user}
+          friend={currentChatFriend}
+          callType={selectedCallType}
+          isOpen={showCallModal}
+          onClose={() => setShowCallModal(false)}
+        />
+      )}
+
     </div>
   );
 }

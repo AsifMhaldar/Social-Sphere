@@ -6,8 +6,8 @@ let onlineUsers = [];
 const initializeSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.NETLIFY_FRONTEND,
-      // origin: "http://localhost:5173",
+      // origin: process.env.NETLIFY_FRONTEND,
+      origin: "http://localhost:5173",
       credentials: true,
     },
   });
@@ -81,7 +81,68 @@ const initializeSocket = (server) => {
         (u) => u.socketId !== socket.id
       );
       io.emit("getOnlineUsers", onlineUsers);
-      console.log("❌ User disconnected:", socket.id);
+      // console.log("❌ User disconnected:", socket.id);
+    });
+
+    // =============================
+    // CALL USER (VIDEO / AUDIO)
+    // =============================
+    socket.on("callUser", ({ fromUserId, toUserId, offer, callType }) => {
+      const receiver = onlineUsers.find(
+        (u) => u.userId === toUserId
+      );
+
+      if (receiver) {
+        io.to(receiver.socketId).emit("incomingCall", {
+          fromUserId,
+          offer,
+          callType, // video or audio
+        });
+      }
+    });
+
+    // =============================
+    // ANSWER CALL
+    // =============================
+    socket.on("answerCall", ({ toUserId, answer }) => {
+      const receiver = onlineUsers.find(
+        (u) => u.userId === toUserId
+      );
+
+      if (receiver) {
+        io.to(receiver.socketId).emit("callAnswered", {
+          answer,
+        });
+      }
+    });
+
+
+    // =============================
+    // ICE CANDIDATE
+    // =============================
+    socket.on("iceCandidate", ({ toUserId, candidate }) => {
+      const receiver = onlineUsers.find(
+        (u) => u.userId === toUserId
+      );
+
+      if (receiver) {
+        io.to(receiver.socketId).emit("iceCandidate", {
+          candidate,
+        });
+      }
+    });
+
+    // =============================
+    // END CALL
+    // =============================
+    socket.on("endCall", ({ toUserId }) => {
+      const receiver = onlineUsers.find(
+        (u) => u.userId === toUserId
+      );
+
+      if (receiver) {
+        io.to(receiver.socketId).emit("callEnded");
+      }
     });
   });
 };
