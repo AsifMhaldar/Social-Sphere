@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useSelector } from "react-redux";
-import socket from "../utils/socket";
+import { connectSocket, getSocket } from "../utils/socket";
 import {
   getUserConversations,
   getMessages,
@@ -68,70 +68,66 @@ export default function Messages() {
     };
 
     loadData();
-    socket.emit("addUser", user._id);
+    const socket = connectSocket();
+    if (!socket) return;
+    getSocket()?.("addUser", user._id);
   }, [user]);
 
   // =============================
   // SOCKET EVENTS
   // =============================
   useEffect(() => {
-    socket.on("getOnlineUsers", setOnlineUsers);
+  const socket = getSocket();
+  if (!socket) return;
 
-    socket.on("receiveMessage", (data) => {
-      console.log('Received message:', data); // Debug log
-      
-      if (currentChat && data.conversationId === currentChat._id) {
-        setMessages((prev) => [...prev, { ...data, status: 'delivered' }]);
-      } else {
-        setUnreadCounts((prev) => ({
-          ...prev,
-          [data.conversationId]: (prev[data.conversationId] || 0) + 1,
-        }));
-      }
-    });
+  socket.on("getOnlineUsers", setOnlineUsers);
 
-    socket.on("typing", (senderId) => {
-      setTypingUser(senderId);
-      setTimeout(() => setTypingUser(null), 3000);
-    });
+  socket.on("receiveMessage", (data) => {
+    if (currentChat && data.conversationId === currentChat._id) {
+      setMessages((prev) => [...prev, { ...data, status: "delivered" }]);
+    } else {
+      setUnreadCounts((prev) => ({
+        ...prev,
+        [data.conversationId]: (prev[data.conversationId] || 0) + 1,
+      }));
+    }
+  });
 
-    socket.on("messageSeen", ({ conversationId }) => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.conversationId === conversationId 
-            ? { ...msg, status: 'seen' }
-            : msg
-        )
-      );
-    });
+  socket.on("typing", (senderId) => {
+    setTypingUser(senderId);
+    setTimeout(() => setTypingUser(null), 3000);
+  });
 
-    // =============================
-    // 🔥 INCOMING CALL LISTENER
-    // =============================
-    socket.on("incomingCall", ({ fromUserId, offer, callType }) => {
-      setIncomingCall({ fromUserId, offer });
-      setCallTypeIncoming(callType);
-    });
+  socket.on("messageSeen", ({ conversationId }) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.conversationId === conversationId
+          ? { ...msg, status: "seen" }
+          : msg
+      )
+    );
+  });
 
-    // =============================
-    // 🔥 CALL ENDED LISTENER
-    // =============================
-    socket.on("callEnded", () => {
-      setIncomingCall(null);
-      setShowCallModal(false);
-    });
+  socket.on("incomingCall", ({ fromUserId, offer, callType }) => {
+    setIncomingCall({ fromUserId, offer });
+    setCallTypeIncoming(callType);
+  });
 
+  socket.on("callEnded", () => {
+    setIncomingCall(null);
+    setShowCallModal(false);
+  });
 
-    return () => {
-      socket.off("getOnlineUsers");
-      socket.off("receiveMessage");
-      socket.off("typing");
-      socket.off("messageSeen");
-      socket.off("incomingCall");
-      socket.off("callEnded");
-    };
+  return () => {
+    socket.off("getOnlineUsers");
+    socket.off("receiveMessage");
+    socket.off("typing");
+    socket.off("messageSeen");
+    socket.off("incomingCall");
+    socket.off("callEnded");
+  };
+}, [currentChat]);
 
-  }, [currentChat]);
 
   // =============================
   // OPEN CHAT
@@ -215,7 +211,7 @@ export default function Messages() {
       );
 
       // Emit socket event
-      socket.emit("sendMessage", {
+      getSocket()?.("sendMessage", {
         conversationId: currentChat._id,
         senderId: user._id,
         receiverId,
@@ -252,7 +248,7 @@ export default function Messages() {
       (m) => m._id !== user._id
     )?._id;
 
-    socket.emit("typing", {
+    getSocket()?.("typing", {
       senderId: user._id,
       receiverId,
     });
@@ -318,7 +314,7 @@ export default function Messages() {
 
   // 🔥 REJECT CALL
   const rejectCall = () => {
-    socket.emit("endCall", {
+    getSocket()?.("endCall", {
       toUserId: incomingCall.fromUserId,
     });
     setIncomingCall(null);

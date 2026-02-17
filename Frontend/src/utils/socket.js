@@ -1,10 +1,18 @@
 import { io } from "socket.io-client";
 
-const socket = io(import.meta.env.VITE_API_URL, {
-  withCredentials: true,
-  auth: {
-    token: localStorage.getItem("token"), // or wherever you store JWT
-  },
-});
+let socket;
 
-export default socket;
+export const connectSocket = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) return null;
+
+  socket = io(import.meta.env.VITE_API_URL, {
+    auth: { token },
+    transports: ["websocket"],
+  });
+
+  return socket;
+};
+
+export const getSocket = () => socket;
