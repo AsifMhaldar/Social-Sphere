@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import socket from "../utils/socket";
+import { getSocket } from "../utils/socket";
 
 export default function CallModal({
   user,
@@ -73,7 +73,7 @@ export default function CallModal({
 
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
-          socket.emit("iceCandidate", {
+          getSocket()?.("iceCandidate", {
             toUserId: friend._id,
             candidate: event.candidate,
           });
@@ -83,7 +83,7 @@ export default function CallModal({
       const offer = await peerConnection.current.createOffer();
       await peerConnection.current.setLocalDescription(offer);
 
-      socket.emit("callUser", {
+      getSocket()?.("callUser", {
         fromUserId: user._id,
         toUserId: friend._id,
         offer,
@@ -129,7 +129,7 @@ export default function CallModal({
 
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
-          socket.emit("iceCandidate", {
+          getSocket()?.("iceCandidate", {
             toUserId: friend._id,
             candidate: event.candidate,
           });
@@ -143,7 +143,7 @@ export default function CallModal({
       const answer = await peerConnection.current.createAnswer();
       await peerConnection.current.setLocalDescription(answer);
 
-      socket.emit("answerCall", {
+      getSocket()?.("answerCall", {
         toUserId: friend._id,
         answer,
       });
@@ -232,7 +232,7 @@ export default function CallModal({
   };
 
   const endCall = () => {
-    socket.emit("endCall", { toUserId: friend._id });
+    getSocket()?.("endCall", { toUserId: friend._id });
     cleanup();
     onClose();
   };
