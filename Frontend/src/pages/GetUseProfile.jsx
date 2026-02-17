@@ -7,9 +7,6 @@ import {
   Heart,
   MessageCircle,
   MoreHorizontal,
-  Calendar,
-  MapPin,
-  Link as LinkIcon,
   Camera,
   Film,
   Image as ImageIcon,
@@ -17,11 +14,9 @@ import {
   RefreshCw,
   UserPlus,
   UserCheck,
-  Users,
-  Bookmark,
-  Share2,
   Send,
-  Settings
+  Settings,
+  Share2
 } from 'lucide-react';
 
 function GetUserProfile() {
@@ -190,16 +185,16 @@ function GetUserProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="relative">
-            <div className="w-20 h-20 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-6"></div>
+            <div className="w-20 h-20 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-6"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-full animate-pulse"></div>
+              <div className="w-10 h-10 bg-blue-500/20 rounded-full animate-pulse"></div>
             </div>
           </div>
-          <p className="text-gray-300 text-lg font-medium">Loading profile...</p>
-          <p className="text-gray-500 text-sm mt-2">Please wait a moment</p>
+          <p className="text-gray-600 text-lg font-medium">Loading profile...</p>
+          <p className="text-gray-400 text-sm mt-2">Please wait a moment</p>
         </div>
       </div>
     );
@@ -207,16 +202,16 @@ function GetUserProfile() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
-        <div className="bg-gray-900/80 backdrop-blur-xl rounded-2xl p-8 max-w-md w-full text-center border border-red-500/30">
-          <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center border border-gray-200 shadow-lg">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">⚠️</span>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-3">Error Loading Profile</h2>
-          <p className="text-gray-400 mb-6">{error}</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">Error Loading Profile</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={goBack}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-all transform hover:scale-105"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all transform hover:scale-105"
           >
             Go Back
           </button>
@@ -226,43 +221,43 @@ function GetUserProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <div className="lg:hidden sticky top-0 z-50 bg-gray-900/80 backdrop-blur-xl border-b border-purple-900/30">
+      <div className="lg:hidden sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
           <button
             onClick={goBack}
-            className="p-2 hover:bg-gray-800 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-white" />
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <h1 className="text-lg font-bold text-white truncate">
+          <h1 className="text-lg font-bold text-gray-800 truncate">
             {profile?.user?.firstName || 'Profile'}
           </h1>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 hover:bg-gray-800 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
           >
-            <MoreHorizontal className="w-5 h-5 text-white" />
+            <MoreHorizontal className="w-5 h-5 text-gray-700" />
           </button>
         </div>
 
         {/* Mobile Menu Dropdown */}
         {isMobileMenuOpen && (
-          <div className="absolute top-full right-4 mt-2 w-48 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden">
+          <div className="absolute top-full right-4 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
             <button
               onClick={goToMessages}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 text-white transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors"
             >
               <Send className="w-4 h-4" />
               <span className="text-sm">Message</span>
             </button>
-            <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 text-white transition-colors">
+            <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors">
               <Share2 className="w-4 h-4" />
               <span className="text-sm">Share Profile</span>
             </button>
             {profile?.isOwnProfile && (
-              <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 text-white transition-colors">
+              <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors">
                 <Settings className="w-4 h-4" />
                 <span className="text-sm">Edit Profile</span>
               </button>
@@ -275,7 +270,7 @@ function GetUserProfile() {
         {/* Back Button - Desktop */}
         <button
           onClick={goBack}
-          className="hidden lg:flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors group"
+          className="hidden lg:flex items-center gap-2 text-gray-600 hover:text-blue-600 mb-6 transition-colors group"
         >
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           <span>Back</span>
@@ -284,7 +279,7 @@ function GetUserProfile() {
         {profile && (
           <>
             {/* Profile Header */}
-            <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl lg:rounded-3xl p-4 lg:p-8 mb-6 border border-purple-900/30 shadow-2xl">
+            <div className="bg-white rounded-2xl lg:rounded-3xl p-4 lg:p-8 mb-6 border border-gray-200 shadow-sm">
               <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 lg:gap-8">
                 {/* Profile Image */}
                 <div className="relative group">
@@ -292,10 +287,10 @@ function GetUserProfile() {
                     <img 
                       src={profile.user?.profilePic || "https://via.placeholder.com/150"} 
                       alt={`${profile.user?.firstName}'s profile`}
-                      className="w-28 h-28 lg:w-36 lg:h-36 rounded-full border-4 border-purple-600 object-cover transition-transform group-hover:scale-105"
+                      className="w-28 h-28 lg:w-36 lg:h-36 rounded-full border-4 border-blue-500 object-cover transition-transform group-hover:scale-105"
                     />
                     {profile.user?.isOnline && (
-                      <span className="absolute bottom-2 right-2 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-900 animate-pulse"></span>
+                      <span className="absolute bottom-2 right-2 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></span>
                     )}
                   </div>
                 </div>
@@ -304,10 +299,10 @@ function GetUserProfile() {
                   {/* Name and Actions */}
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold text-white mb-1">
+                      <h1 className="text-2xl lg:text-3xl font-bold text-gray-800 mb-1">
                         {profile.user?.firstName} {profile.user?.lastName}
                       </h1>
-                      <p className="text-gray-400 text-sm">@{profile.user?.username || 'username'}</p>
+                      <p className="text-gray-500 text-sm">@{profile.user?.username || 'username'}</p>
                     </div>
                     
                     {/* Action Buttons */}
@@ -319,8 +314,8 @@ function GetUserProfile() {
                             disabled={followLoading}
                             className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-all transform hover:scale-105 disabled:opacity-50 ${
                               profile.user?.isFollowing
-                                ? 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700'
-                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-600/30'
+                                ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30'
                             }`}
                           >
                             {followLoading ? (
@@ -340,14 +335,14 @@ function GetUserProfile() {
                           
                           <button
                             onClick={goToMessages}
-                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-medium transition-all transform hover:scale-105"
+                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all transform hover:scale-105"
                           >
                             <Send className="w-4 h-4" />
                             <span className="hidden sm:inline">Message</span>
                           </button>
                         </>
                       ) : (
-                        <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-medium transition-all transform hover:scale-105">
+                        <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all transform hover:scale-105">
                           <Settings className="w-4 h-4" />
                           <span className="hidden sm:inline">Edit Profile</span>
                         </button>
@@ -358,31 +353,31 @@ function GetUserProfile() {
                   {/* Stats */}
                   <div className="flex justify-center lg:justify-start gap-6 lg:gap-8 mb-4">
                     <div className="text-center">
-                      <div className="text-xl lg:text-2xl font-bold text-white">{profile.user?.postCount || posts.length}</div>
-                      <div className="text-gray-400 text-xs lg:text-sm">Posts</div>
+                      <div className="text-xl lg:text-2xl font-bold text-gray-800">{profile.user?.postCount || posts.length}</div>
+                      <div className="text-gray-500 text-xs lg:text-sm">Posts</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-xl lg:text-2xl font-bold text-white">{profile.user?.followersCount || 0}</div>
-                      <div className="text-gray-400 text-xs lg:text-sm">Followers</div>
+                      <div className="text-xl lg:text-2xl font-bold text-gray-800">{profile.user?.followersCount || 0}</div>
+                      <div className="text-gray-500 text-xs lg:text-sm">Followers</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-xl lg:text-2xl font-bold text-white">{profile.user?.followingCount || 0}</div>
-                      <div className="text-gray-400 text-xs lg:text-sm">Following</div>
+                      <div className="text-xl lg:text-2xl font-bold text-gray-800">{profile.user?.followingCount || 0}</div>
+                      <div className="text-gray-500 text-xs lg:text-sm">Following</div>
                     </div>
                   </div>
                   
                   {/* Bio */}
                   {profile.user?.bio && (
-                    <p className="text-gray-300 text-sm lg:text-base max-w-2xl mx-auto lg:mx-0 mb-4">
+                    <p className="text-gray-600 text-sm lg:text-base max-w-2xl mx-auto lg:mx-0 mb-4">
                       {profile.user.bio}
                     </p>
                   )}
                   
                   {/* Follow Status */}
                   {profile.user?.isFollowing && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-900/30 border border-green-700/50">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-200">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs lg:text-sm text-green-400">You follow this user</span>
+                      <span className="text-xs lg:text-sm text-green-600">You follow this user</span>
                     </div>
                   )}
                 </div>
@@ -390,13 +385,13 @@ function GetUserProfile() {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-purple-900/30 mb-6">
+            <div className="flex border-b border-gray-200 mb-6">
               <button
                 onClick={() => setActiveTab('posts')}
                 className={`flex-1 lg:flex-none px-6 py-3 font-medium text-sm lg:text-base transition-all relative ${
                   activeTab === 'posts'
-                    ? 'text-purple-400'
-                    : 'text-gray-500 hover:text-gray-300'
+                    ? 'text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -404,7 +399,7 @@ function GetUserProfile() {
                   <span>Posts</span>
                 </div>
                 {activeTab === 'posts' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-600 to-indigo-600"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
                 )}
               </button>
               
@@ -412,8 +407,8 @@ function GetUserProfile() {
                 onClick={() => setActiveTab('media')}
                 className={`flex-1 lg:flex-none px-6 py-3 font-medium text-sm lg:text-base transition-all relative ${
                   activeTab === 'media'
-                    ? 'text-purple-400'
-                    : 'text-gray-500 hover:text-gray-300'
+                    ? 'text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -421,7 +416,7 @@ function GetUserProfile() {
                   <span>Media</span>
                 </div>
                 {activeTab === 'media' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-600 to-indigo-600"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
                 )}
               </button>
             </div>
@@ -430,13 +425,13 @@ function GetUserProfile() {
             {activeTab === 'posts' && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg lg:text-xl font-semibold text-white">
+                  <h2 className="text-lg lg:text-xl font-semibold text-gray-800">
                     Posts ({posts.length})
                   </h2>
                   <button 
                     onClick={() => fetchUserPosts(userId)}
                     disabled={postsLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 text-sm font-medium transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium transition-all disabled:opacity-50"
                   >
                     <RefreshCw className={`w-4 h-4 ${postsLoading ? 'animate-spin' : ''}`} />
                     <span className="hidden sm:inline">{postsLoading ? 'Refreshing...' : 'Refresh'}</span>
@@ -446,17 +441,17 @@ function GetUserProfile() {
                 {postsLoading ? (
                   <div className="text-center py-12">
                     <div className="relative w-16 h-16 mx-auto mb-4">
-                      <div className="absolute inset-0 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                      <div className="absolute inset-2 bg-purple-500/20 rounded-full animate-pulse"></div>
+                      <div className="absolute inset-0 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                      <div className="absolute inset-2 bg-blue-500/20 rounded-full animate-pulse"></div>
                     </div>
-                    <p className="text-gray-400">Loading posts...</p>
+                    <p className="text-gray-500">Loading posts...</p>
                   </div>
                 ) : posts.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {posts.map((post) => (
                       <div 
                         key={post._id} 
-                        className="bg-gray-900/50 backdrop-blur-lg rounded-xl overflow-hidden border border-gray-800 hover:border-purple-700 transition-all group"
+                        className="bg-white rounded-xl overflow-hidden border border-gray-200 hover:border-blue-500 transition-all group shadow-sm"
                       >
                         {/* Post Image/Media */}
                         {post.mediaUrl && (
@@ -488,7 +483,7 @@ function GetUserProfile() {
                         <div className="p-3">
                           {/* Caption */}
                           {post.caption && (
-                            <p className="text-gray-400 text-sm mb-3 line-clamp-2">
+                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                               {post.caption}
                             </p>
                           )}
@@ -500,7 +495,7 @@ function GetUserProfile() {
                               <button 
                                 onClick={() => handleLike(post._id)}
                                 disabled={likingPosts[post._id]}
-                                className="flex items-center gap-1.5 text-gray-400 hover:text-red-500 transition-colors group"
+                                className="flex items-center gap-1.5 text-gray-500 hover:text-red-500 transition-colors group"
                               >
                                 {post.isLiked ? (
                                   <Heart className="w-4 h-4 lg:w-5 lg:h-5 fill-red-500 text-red-500" />
@@ -516,13 +511,13 @@ function GetUserProfile() {
                               </button>
                               
                               {/* Comment Button */}
-                              <button className="flex items-center gap-1.5 text-gray-400 hover:text-blue-500 transition-colors">
+                              <button className="flex items-center gap-1.5 text-gray-500 hover:text-blue-500 transition-colors">
                                 <MessageCircle className="w-4 h-4 lg:w-5 lg:h-5" />
                                 <span className="text-xs lg:text-sm">{post.commentsCount || 0}</span>
                               </button>
                             </div>
                             
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-400">
                               {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : ''}
                             </span>
                           </div>
@@ -531,15 +526,15 @@ function GetUserProfile() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 bg-gray-900/30 backdrop-blur-lg rounded-2xl border border-gray-800">
-                    <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Camera className="w-8 h-8 text-gray-600" />
+                  <div className="text-center py-12 bg-white rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Camera className="w-8 h-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg lg:text-xl text-gray-300 mb-2">No posts yet</h3>
+                    <h3 className="text-lg lg:text-xl text-gray-700 mb-2">No posts yet</h3>
                     <p className="text-gray-500 text-sm mb-6">This user hasn't created any posts</p>
                     <button 
                       onClick={() => fetchUserPosts(userId)}
-                      className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-all transform hover:scale-105"
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all transform hover:scale-105"
                     >
                       Check Again
                     </button>
@@ -551,14 +546,14 @@ function GetUserProfile() {
             {/* Media Tab */}
             {activeTab === 'media' && (
               <div>
-                <h2 className="text-lg lg:text-xl font-semibold text-white mb-4">
+                <h2 className="text-lg lg:text-xl font-semibold text-gray-800 mb-4">
                   Media
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {posts.filter(post => post.mediaUrl).map((post) => (
                     <div 
                       key={post._id}
-                      className="relative aspect-square rounded-xl overflow-hidden cursor-pointer group"
+                      className="relative aspect-square rounded-xl overflow-hidden cursor-pointer group shadow-sm border border-gray-200"
                     >
                       <img 
                         src={post.mediaUrl} 
