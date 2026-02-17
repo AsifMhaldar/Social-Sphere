@@ -684,12 +684,18 @@ export default function Messages() {
               ? { _id: incomingCall.fromUserId }
               : currentChatFriend
           }
-          callType={selectedCallType}
-          incomingOffer={incomingCall?.offer}
+          callType={
+            incomingCall ? callTypeIncoming : selectedCallType
+          }
+          incomingOffer={incomingCall?.offer || null}
           isOpen={showCallModal}
-          onClose={() => setShowCallModal(false)}
+          onClose={() => {
+            setShowCallModal(false);
+            setIncomingCall(null);
+          }}
         />
       )}
+
 
     </div>
   );
