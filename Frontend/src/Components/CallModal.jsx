@@ -73,7 +73,7 @@ export default function CallModal({
 
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
-          getSocket()?.("iceCandidate", {
+          getSocket()?.emit("iceCandidate", {
             toUserId: friend._id,
             candidate: event.candidate,
           });
@@ -83,12 +83,12 @@ export default function CallModal({
       const offer = await peerConnection.current.createOffer();
       await peerConnection.current.setLocalDescription(offer);
 
-      getSocket()?.("callUser", {
-        fromUserId: user._id,
+      getSocket()?.emit("callUser", {
         toUserId: friend._id,
         offer,
         callType,
       });
+
 
       setIsRinging(true);
     } catch (err) {
@@ -129,7 +129,7 @@ export default function CallModal({
 
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
-          getSocket()?.("iceCandidate", {
+          getSocket()?.emit("iceCandidate", {
             toUserId: friend._id,
             candidate: event.candidate,
           });
@@ -143,7 +143,7 @@ export default function CallModal({
       const answer = await peerConnection.current.createAnswer();
       await peerConnection.current.setLocalDescription(answer);
 
-      getSocket()?.("answerCall", {
+      getSocket()?.emit("answerCall", {
         toUserId: friend._id,
         answer,
       });
@@ -158,23 +158,33 @@ export default function CallModal({
   // SOCKET LISTENERS
   // ================================
   useEffect(() => {
-    // Caller receives answer
+    const socket = getSocket();
+    if (!socket) return;
+
     socket.on("callAnswered", async ({ answer }) => {
       if (!peerConnection.current) return;
 
-      setIsRinging(false);
-      setCallAccepted(true);
+      try {
+        if (!peerConnection.current.currentRemoteDescription) {
+          await peerConnection.current.setRemoteDescription(
+            new RTCSessionDescription(answer)
+          );
+        }
 
-      await peerConnection.current.setRemoteDescription(
-        new RTCSessionDescription(answer)
-      );
-
-      startTimer();
+        setIsRinging(false);
+        setCallAccepted(true);
+        startTimer();
+      } catch (err) {
+        console.log("Answer error:", err);
+      }
     });
+
 
     socket.on("iceCandidate", async ({ candidate }) => {
       try {
-        if (peerConnection.current) {
+        if (!peerConnection.current) return;
+
+        if (peerConnection.current.remoteDescription) {
           await peerConnection.current.addIceCandidate(
             new RTCIceCandidate(candidate)
           );
@@ -183,6 +193,8 @@ export default function CallModal({
         console.log("ICE error:", err);
       }
     });
+
+
 
     socket.on("callEnded", () => {
       cleanup();
@@ -195,6 +207,7 @@ export default function CallModal({
       socket.off("callEnded");
     };
   }, []);
+
 
   // ================================
   // TIMER
@@ -220,6 +233,12 @@ export default function CallModal({
     setCallAccepted(false);
     setIsRinging(false);
 
+    // 🔥 FIX: Stop ringtone properly
+    if (ringtoneRef.current) {
+      ringtoneRef.current.pause();
+      ringtoneRef.current.currentTime = 0;
+    }
+
     if (peerConnection.current) {
       peerConnection.current.close();
       peerConnection.current = null;
@@ -231,8 +250,9 @@ export default function CallModal({
     }
   };
 
+
   const endCall = () => {
-    getSocket()?.("endCall", { toUserId: friend._id });
+    getSocket()?.emit("endCall", { toUserId: friend._id });
     cleanup();
     onClose();
   };

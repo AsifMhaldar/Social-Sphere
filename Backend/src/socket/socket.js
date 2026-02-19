@@ -1,8 +1,5 @@
 const { Server } = require("socket.io");
-const jwt = require("jsonwebtoken"); // 👈 ADD
-const Message = require("../models/message.model");
-
-let onlineUsers = [];
+const jwt = require("jsonwebtoken");
 
 const initializeSocket = (server) => {
   const io = new Server(server, {
@@ -11,6 +8,10 @@ const initializeSocket = (server) => {
       credentials: true,
     },
   });
+
+  // 🔥 Use Map instead of array (better performance + cleaner)
+  const onlineUsers = new Map(); 
+  // structure: userId -> socketId
 
   // =============================
   // 🔐 SOCKET AUTH MIDDLEWARE
@@ -25,7 +26,7 @@ const initializeSocket = (server) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      socket.user = decoded; // attach user info to socket
+      socket.user = decoded; // attach user info
       next();
     } catch (err) {
       console.log("Socket auth error:", err.message);
@@ -37,76 +38,95 @@ const initializeSocket = (server) => {
   // CONNECTION
   // =============================
   io.on("connection", (socket) => {
-    console.log("🔥 Socket connected:", socket.user?.id);
+    const userId = socket.user.id;
+
+    console.log("🔥 Socket connected:", userId);
+
+    // ✅ Automatically register user
+    onlineUsers.set(userId.toString(), socket.id);
+
+    // Broadcast updated online users
+    io.emit("getOnlineUsers", Array.from(onlineUsers.keys()));
 
     // =============================
-    // ADD USER
+    // 💬 SEND MESSAGE
     // =============================
-    socket.on("addUser", (userId) => {
-      if (!onlineUsers.some((u) => u.userId === userId)) {
-        onlineUsers.push({ userId, socketId: socket.id });
-      }
-      io.emit("getOnlineUsers", onlineUsers);
-    });
+    socket.on("sendMessage", ({ conversationId, receiverId, text }) => {
+      const receiverSocketId = onlineUsers.get(receiverId?.toString());
 
-    // =============================
-    // SEND MESSAGE
-    // =============================
-    socket.on("sendMessage", ({ conversationId, senderId, receiverId, text }) => {
-      const receiver = onlineUsers.find((u) => u.userId === receiverId);
-
-      if (receiver) {
-        io.to(receiver.socketId).emit("receiveMessage", {
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("receiveMessage", {
           conversationId,
-          senderId,
+          senderId: userId,
           text,
         });
       }
     });
 
     // =============================
-    // CALL USER
+    // 📞 CALL USER
     // =============================
-    socket.on("callUser", ({ fromUserId, toUserId, offer, callType }) => {
-      const receiver = onlineUsers.find((u) => u.userId === toUserId);
+    socket.on("callUser", ({ toUserId, offer, callType }) => {
+      const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
-      if (receiver) {
-        io.to(receiver.socketId).emit("incomingCall", {
-          fromUserId,
+      console.log("📞 Calling:", toUserId);
+      console.log("👥 Online Users:", Array.from(onlineUsers.keys()));
+
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("incomingCall", {
+          fromUserId: userId,
           offer,
           callType,
         });
       }
     });
 
+    // =============================
+    // 📞 ANSWER CALL
+    // =============================
     socket.on("answerCall", ({ toUserId, answer }) => {
-      const receiver = onlineUsers.find((u) => u.userId === toUserId);
+      const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
-      if (receiver) {
-        io.to(receiver.socketId).emit("callAnswered", { answer });
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("callAnswered", {
+          answer,
+        });
       }
     });
 
+    // =============================
+    // ❄️ ICE CANDIDATES
+    // =============================
     socket.on("iceCandidate", ({ toUserId, candidate }) => {
-      const receiver = onlineUsers.find((u) => u.userId === toUserId);
+      const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
-      if (receiver) {
-        io.to(receiver.socketId).emit("iceCandidate", { candidate });
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("iceCandidate", {
+          candidate,
+        });
       }
     });
 
+    // =============================
+    // 🔚 END CALL
+    // =============================
     socket.on("endCall", ({ toUserId }) => {
-      const receiver = onlineUsers.find((u) => u.userId === toUserId);
+      const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
-      if (receiver) {
-        io.to(receiver.socketId).emit("callEnded");
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("callEnded");
       }
     });
 
+    // =============================
+    // ❌ DISCONNECT
+    // =============================
     socket.on("disconnect", () => {
-      onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id);
-      io.emit("getOnlineUsers", onlineUsers);
-      console.log("❌ Socket disconnected");
+      console.log("❌ Socket disconnected:", userId);
+
+      onlineUsers.delete(userId.toString());
+
+      io.emit("getOnlineUsers", Array.from(onlineUsers.keys()));
     });
   });
 };

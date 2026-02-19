@@ -79,9 +79,7 @@ export default function Messages() {
     };
 
     loadData();
-    const socket = connectSocket();
-    if (!socket) return;
-    getSocket()?.emit("addUser", user._id);
+    connectSocket();
   }, [user]);
 
   // =============================
@@ -137,7 +135,7 @@ export default function Messages() {
       socket.off("incomingCall");
       socket.off("callEnded");
     };
-  }, [currentChat]);
+  }, []);
 
   // =============================
   // OPEN CHAT - FIXED VERSION
@@ -294,7 +292,7 @@ export default function Messages() {
   // CHECK ONLINE
   // =============================
   const isUserOnline = (userId) =>
-    onlineUsers.some((u) => u.userId === userId);
+    onlineUsers.includes(userId);
 
   // Filter users based on search
   const filteredUsers = users.filter(u => 
@@ -337,8 +335,13 @@ export default function Messages() {
   const acceptCall = () => {
     setSelectedCallType(callTypeIncoming);
     setShowCallModal(true);
-    setIncomingCall(null);
+
+    // clear AFTER modal opens
+    setTimeout(() => {
+      setIncomingCall(null);
+    }, 0);
   };
+
 
   const rejectCall = () => {
     getSocket()?.emit("endCall", {
