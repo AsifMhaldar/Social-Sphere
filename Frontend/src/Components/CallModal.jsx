@@ -176,6 +176,7 @@ export default function CallModal({
     if (!socket) return;
 
     socket.on("callAnswered", async ({ answer }) => {
+       console.log("🔥 CALL ANSWER RECEIVED");
       if (!peerConnection.current) return;
 
       try {

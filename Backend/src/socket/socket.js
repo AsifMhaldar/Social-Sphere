@@ -97,6 +97,7 @@ const initializeSocket = (server) => {
     // 📞 ANSWER CALL
     // =============================
     socket.on("answerCall", ({ toUserId, answer }) => {
+      console.log("📤 Sending callAnswered to:", toUserId);
       const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
       if (receiverSocketId) {
