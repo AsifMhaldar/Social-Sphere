@@ -9,6 +9,12 @@ export default function CallModal({
   isOpen,
   onClose,
 }) {
+
+  const friendId =
+    typeof friend === "string"
+      ? friend
+      : friend?._id;
+
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
@@ -74,7 +80,7 @@ export default function CallModal({
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
           getSocket()?.emit("iceCandidate", {
-            toUserId: friend._id,
+            toUserId: friendId,
             candidate: event.candidate,
           });
         }
@@ -83,15 +89,17 @@ export default function CallModal({
       const offer = await peerConnection.current.createOffer();
       await peerConnection.current.setLocalDescription(offer);
 
-      if (!friend || !friend._id) {
+      
+
+      if (!friendId) {
         console.log("❌ Friend invalid inside CallModal:", friend);
         return;
       }
 
-      console.log("📞 Emitting call to:", friend._id);
+      console.log("📞 Emitting call to:", friendId);
 
       getSocket()?.emit("callUser", {
-        toUserId: friend._id,
+        toUserId: friendId,
         offer,
         callType,
       });
@@ -138,7 +146,7 @@ export default function CallModal({
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
           getSocket()?.emit("iceCandidate", {
-            toUserId: friend._id,
+            toUserId: friendId,
             candidate: event.candidate,
           });
         }
@@ -152,7 +160,7 @@ export default function CallModal({
       await peerConnection.current.setLocalDescription(answer);
 
       getSocket()?.emit("answerCall", {
-        toUserId: friend._id,
+        toUserId: friendId,
         answer,
       });
 
@@ -260,7 +268,7 @@ export default function CallModal({
 
 
   const endCall = () => {
-    getSocket()?.emit("endCall", { toUserId: friend._id });
+    getSocket()?.emit("endCall", { toUserId: friendId });
     cleanup();
     onClose();
   };
