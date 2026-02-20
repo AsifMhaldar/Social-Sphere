@@ -74,7 +74,7 @@ export default function CallModal({
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
           getSocket()?.emit("iceCandidate", {
-            toUserId: friend._id,
+            toUserId: typeof friend === "string" ? friend : friend._id,
             candidate: event.candidate,
           });
         }
@@ -84,7 +84,7 @@ export default function CallModal({
       await peerConnection.current.setLocalDescription(offer);
 
       getSocket()?.emit("callUser", {
-        toUserId: friend._id,
+        toUserId: typeof friend === "string" ? friend : friend._id,
         offer,
         callType,
       });
@@ -130,7 +130,7 @@ export default function CallModal({
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
           getSocket()?.emit("iceCandidate", {
-            toUserId: friend._id,
+            toUserId: typeof friend === "string" ? friend : friend._id,
             candidate: event.candidate,
           });
         }
@@ -144,7 +144,7 @@ export default function CallModal({
       await peerConnection.current.setLocalDescription(answer);
 
       getSocket()?.emit("answerCall", {
-        toUserId: friend._id,
+        toUserId: typeof friend === "string" ? friend : friend._id,
         answer,
       });
 
@@ -252,7 +252,7 @@ export default function CallModal({
 
 
   const endCall = () => {
-    getSocket()?.emit("endCall", { toUserId: friend._id });
+    getSocket()?.emit("endCall", { toUserId: typeof friend === "string" ? friend : friend._id });
     cleanup();
     onClose();
   };

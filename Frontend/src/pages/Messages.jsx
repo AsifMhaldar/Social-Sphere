@@ -302,8 +302,9 @@ export default function Messages() {
 
   // Get current chat friend
   const currentChatFriend = currentChat?.members.find(
-    (m) => m._id !== user._id
+    (m) => m !== user._id
   );
+
 
   // Format time
   const formatMessageTime = (timestamp) => {
@@ -332,7 +333,7 @@ export default function Messages() {
     console.log("🔥 members:", currentChat?.members);
     console.log("🔥 user._id:", user?._id);
 
-    if (!currentChat) return;
+    if (!currentChatFriend) return;
 
     const friend = currentChat.members.find((m) => {
       console.log("Checking member:", m);
@@ -741,7 +742,7 @@ export default function Messages() {
           user={user}
           friend={
             incomingCall
-              ? { _id: incomingCall.fromUserId }
+              ? incomingCall.fromUserId
               : currentChatFriend
           }
           callType={
