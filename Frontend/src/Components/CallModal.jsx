@@ -9,12 +9,6 @@ export default function CallModal({
   isOpen,
   onClose,
 }) {
-
-  const friendId =
-    typeof friend === "string"
-      ? friend
-      : friend?._id;
-
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
@@ -80,7 +74,7 @@ export default function CallModal({
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
           getSocket()?.emit("iceCandidate", {
-            toUserId: friendId,
+            toUserId: friend._id,
             candidate: event.candidate,
           });
         }
@@ -89,21 +83,11 @@ export default function CallModal({
       const offer = await peerConnection.current.createOffer();
       await peerConnection.current.setLocalDescription(offer);
 
-      
-
-      if (!friendId) {
-        console.log("❌ Friend invalid inside CallModal:", friend);
-        return;
-      }
-
-      console.log("📞 Emitting call to:", friendId);
-
       getSocket()?.emit("callUser", {
-        toUserId: friendId,
+        toUserId: friend._id,
         offer,
         callType,
       });
-
 
 
       setIsRinging(true);
@@ -146,7 +130,7 @@ export default function CallModal({
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
           getSocket()?.emit("iceCandidate", {
-            toUserId: friendId,
+            toUserId: friend._id,
             candidate: event.candidate,
           });
         }
@@ -160,7 +144,7 @@ export default function CallModal({
       await peerConnection.current.setLocalDescription(answer);
 
       getSocket()?.emit("answerCall", {
-        toUserId: friendId,
+        toUserId: friend._id,
         answer,
       });
 
@@ -268,7 +252,7 @@ export default function CallModal({
 
 
   const endCall = () => {
-    getSocket()?.emit("endCall", { toUserId: friendId });
+    getSocket()?.emit("endCall", { toUserId: friend._id });
     cleanup();
     onClose();
   };

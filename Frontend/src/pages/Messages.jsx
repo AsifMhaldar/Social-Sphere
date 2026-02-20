@@ -729,7 +729,7 @@ export default function Messages() {
       {showCallModal && (
         <CallModal
           user={user}
-          friendId={
+          friend={
             incomingCall
               ? { _id: incomingCall.fromUserId }
               : currentChatFriend
