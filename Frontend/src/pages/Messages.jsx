@@ -328,23 +328,14 @@ export default function Messages() {
   };
 
   const startCall = (type) => {
-    if (!currentChatFriend) {
+    if (!currentChatFriend?._id) {
       console.log("❌ No valid friend selected for call");
       return;
     }
 
-    const socket = getSocket();
-
-    socket.emit("callUser", {
-      toUserId: currentChatFriend,
-      offer: null,   // your CallModal will generate real offer
-      callType: type,
-    });
-
     setSelectedCallType(type);
     setShowCallModal(true);
   };
-
 
   const acceptCall = () => {
     setSelectedCallType(callTypeIncoming);

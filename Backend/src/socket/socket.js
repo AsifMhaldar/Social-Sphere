@@ -89,7 +89,7 @@ const initializeSocket = (server) => {
 
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("incomingCall", {
-          fromUserId: userId,
+          fromUserId: socket.userId,
           offer,
           callType,
         });
