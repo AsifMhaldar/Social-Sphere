@@ -208,8 +208,8 @@ export default function Messages() {
     if (!currentChat || !text.trim()) return;
 
     const receiverId = currentChat.members.find(
-      (m) => m._id !== user._id
-    )?._id;
+      (m) => m !== user._id
+    );
 
     // Create temporary message for instant display
     const tempMessage = {
