@@ -328,7 +328,23 @@ export default function Messages() {
   };
 
   const startCall = (type) => {
-    if (!currentChatFriend?._id) {
+    console.log("🔥 currentChat:", currentChat);
+    console.log("🔥 members:", currentChat?.members);
+    console.log("🔥 user._id:", user?._id);
+
+    if (!currentChat) return;
+
+    const friend = currentChat.members.find((m) => {
+      console.log("Checking member:", m);
+      console.log("Type:", typeof m);
+      console.log("m._id:", m?._id);
+
+      return (typeof m === "string" ? m : m._id) !== user._id;
+    });
+
+    console.log("🔥 Found friend:", friend);
+
+    if (!friend) {
       console.log("❌ No valid friend selected for call");
       return;
     }
@@ -336,6 +352,7 @@ export default function Messages() {
     setSelectedCallType(type);
     setShowCallModal(true);
   };
+
 
 
 
