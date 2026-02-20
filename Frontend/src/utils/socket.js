@@ -3,11 +3,11 @@ import { io } from "socket.io-client";
 let socket = null;
 
 export const connectSocket = () => {
-  // Prevent multiple connections
-  if (socket && socket.connected) return socket;
+  if (socket) return socket; // ✅ prevent multiple connections
 
   socket = io(import.meta.env.VITE_API_URL, {
-    withCredentials: true,     // ✅ IMPORTANT (send cookies)
+    withCredentials: true,
+    transports: ["websocket"], // 🔥 force websocket only
   });
 
   socket.on("connect", () => {
@@ -16,10 +16,6 @@ export const connectSocket = () => {
 
   socket.on("disconnect", (reason) => {
     console.log("❌ Socket disconnected:", reason);
-  });
-
-  socket.on("connect_error", (err) => {
-    console.log("🚨 Socket error:", err.message);
   });
 
   return socket;

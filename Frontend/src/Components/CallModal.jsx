@@ -158,7 +158,7 @@ export default function CallModal({
   // SOCKET LISTENERS
   // ================================
   useEffect(() => {
-    const socket = getSocket() || connectSocket();
+    const socket = getSocket();
     if (!socket) return;
 
     socket.on("callAnswered", async ({ answer }) => {
