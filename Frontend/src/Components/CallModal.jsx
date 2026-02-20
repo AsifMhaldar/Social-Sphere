@@ -15,6 +15,7 @@ export default function CallModal({
   const localStream = useRef(null);
   const timerRef = useRef(null);
   const ringtoneRef = useRef(null);
+  const pendingCandidates = useRef([]);
 
   const [callTimer, setCallTimer] = useState(0);
   const [callAccepted, setCallAccepted] = useState(false);
@@ -139,6 +140,10 @@ export default function CallModal({
       await peerConnection.current.setRemoteDescription(
         new RTCSessionDescription(incomingOffer)
       );
+      for (const candidate of pendingCandidates.current) {
+        await peerConnection.current.addIceCandidate(candidate);
+      }
+      pendingCandidates.current = [];
 
       const answer = await peerConnection.current.createAnswer();
       await peerConnection.current.setLocalDescription(answer);
@@ -169,6 +174,12 @@ export default function CallModal({
           await peerConnection.current.setRemoteDescription(
             new RTCSessionDescription(answer)
           );
+
+          for (const candidate of pendingCandidates.current) {
+            await peerConnection.current.addIceCandidate(candidate);
+          }
+          pendingCandidates.current = [];
+
         }
 
         setIsRinging(false);
@@ -184,10 +195,12 @@ export default function CallModal({
       try {
         if (!peerConnection.current) return;
 
+        const iceCandidate = new RTCIceCandidate(candidate);
+
         if (peerConnection.current.remoteDescription) {
-          await peerConnection.current.addIceCandidate(
-            new RTCIceCandidate(candidate)
-          );
+          await peerConnection.current.addIceCandidate(iceCandidate);
+        } else {
+          pendingCandidates.current.push(iceCandidate);
         }
       } catch (err) {
         console.log("ICE error:", err);
