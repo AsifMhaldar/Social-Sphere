@@ -3,15 +3,11 @@ import { io } from "socket.io-client";
 let socket = null;
 
 export const connectSocket = () => {
-  if (socket) return socket; // ✅ prevent multiple connections
-
-  const token = localStorage.getItem("token");
-  if (!token) return null;
+  // Prevent multiple connections
+  if (socket && socket.connected) return socket;
 
   socket = io(import.meta.env.VITE_API_URL, {
-    auth: { token },
-    transports: ["websocket"],
-    withCredentials: true,
+    withCredentials: true,     // ✅ IMPORTANT (send cookies)
   });
 
   socket.on("connect", () => {

@@ -39,8 +39,8 @@ const register = async (req, res) => {
         res.cookie('token', token, {
             maxAge: 60 * 60 * 1000,
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+            secure: false,
+            sameSite: 'lax'
         });
         
         res.status(201).json({
@@ -96,8 +96,8 @@ const login = async(req, res) => {
         res.cookie('token', token, {
             maxAge: 60 * 60 * 1000,
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+            secure: false,
+            sameSite: 'lax'
         });
         
         res.status(200).json({  // ✅ 200 for login, not 201

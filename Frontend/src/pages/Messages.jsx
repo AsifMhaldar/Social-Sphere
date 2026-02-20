@@ -208,8 +208,8 @@ export default function Messages() {
     if (!currentChat || !text.trim()) return;
 
     const receiverId = currentChat.members.find(
-      (m) => m._id !== user._id
-    )?._id;
+      (m) => m !== user._id
+    );
 
     // Create temporary message for instant display
     const tempMessage = {
@@ -302,7 +302,7 @@ export default function Messages() {
 
   // Get current chat friend
   const currentChatFriend = currentChat?.members.find(
-    (m) => m._id !== user._id
+    (m) => m !== user._id
   );
 
   // Format time
@@ -328,9 +328,23 @@ export default function Messages() {
   };
 
   const startCall = (type) => {
+    if (!currentChatFriend) {
+      console.log("❌ No valid friend selected for call");
+      return;
+    }
+
+    const socket = getSocket();
+
+    socket.emit("callUser", {
+      toUserId: currentChatFriend,
+      offer: null,   // your CallModal will generate real offer
+      callType: type,
+    });
+
     setSelectedCallType(type);
     setShowCallModal(true);
   };
+
 
   const acceptCall = () => {
     setSelectedCallType(callTypeIncoming);

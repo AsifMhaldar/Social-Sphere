@@ -4,32 +4,47 @@ const jwt = require("jsonwebtoken");
 const initializeSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.NETLIFY_FRONTEND,
+      origin: process.env.LOCAL_HOST,
       credentials: true,
     },
   });
 
-  // 🔥 Use Map instead of array (better performance + cleaner)
-  const onlineUsers = new Map(); 
-  // structure: userId -> socketId
+  // userId -> socketId
+  const onlineUsers = new Map();
 
   // =============================
   // 🔐 SOCKET AUTH MIDDLEWARE
   // =============================
   io.use((socket, next) => {
     try {
-      const token = socket.handshake.auth.token;
+      const cookieHeader = socket.handshake.headers.cookie;
 
-      if (!token) {
+      if (!cookieHeader) {
+        console.log("❌ No cookie header");
         return next(new Error("Unauthorized"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Parse cookies safely
+      const cookies = Object.fromEntries(
+        cookieHeader.split(";").map((c) => {
+          const [key, value] = c.trim().split("=");
+          return [key, value];
+        })
+      );
+
+      const token = cookies.token;
+
+      if (!token) {
+        console.log("❌ No token found in cookies");
+        return next(new Error("Unauthorized"));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_KEY);
 
       socket.user = decoded; // attach user info
       next();
     } catch (err) {
-      console.log("Socket auth error:", err.message);
+      console.log("❌ Socket auth error:", err.message);
       next(new Error("Unauthorized"));
     }
   });
@@ -38,14 +53,14 @@ const initializeSocket = (server) => {
   // CONNECTION
   // =============================
   io.on("connection", (socket) => {
-    const userId = socket.user.id;
+    const userId = socket.user._id;
 
     console.log("🔥 Socket connected:", userId);
 
-    // ✅ Automatically register user
     onlineUsers.set(userId.toString(), socket.id);
 
-    // Broadcast updated online users
+    console.log("👥 Online Users:", Array.from(onlineUsers.keys()));
+
     io.emit("getOnlineUsers", Array.from(onlineUsers.keys()));
 
     // =============================

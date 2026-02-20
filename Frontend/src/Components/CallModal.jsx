@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getSocket } from "../utils/socket";
+import { getSocket, connectSocket } from "../utils/socket";
 
 export default function CallModal({
   user,
@@ -83,11 +83,19 @@ export default function CallModal({
       const offer = await peerConnection.current.createOffer();
       await peerConnection.current.setLocalDescription(offer);
 
+      if (!friend || !friend._id) {
+        console.log("❌ Friend invalid inside CallModal:", friend);
+        return;
+      }
+
+      console.log("📞 Emitting call to:", friend._id);
+
       getSocket()?.emit("callUser", {
         toUserId: friend._id,
         offer,
         callType,
       });
+
 
 
       setIsRinging(true);
@@ -158,7 +166,7 @@ export default function CallModal({
   // SOCKET LISTENERS
   // ================================
   useEffect(() => {
-    const socket = getSocket();
+    const socket = getSocket() || connectSocket();
     if (!socket) return;
 
     socket.on("callAnswered", async ({ answer }) => {
