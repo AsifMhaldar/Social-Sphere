@@ -165,7 +165,7 @@ export default function CallModal({
       if (!peerConnection.current) return;
 
       try {
-        if (!peerConnection.current.currentRemoteDescription) {
+        if (!peerConnection.current.remoteDescription) {
           await peerConnection.current.setRemoteDescription(
             new RTCSessionDescription(answer)
           );

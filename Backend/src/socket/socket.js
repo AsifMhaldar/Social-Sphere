@@ -84,12 +84,9 @@ const initializeSocket = (server) => {
     socket.on("callUser", ({ toUserId, offer, callType }) => {
       const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
-      console.log("📞 Calling:", toUserId);
-      console.log("👥 Online Users:", Array.from(onlineUsers.keys()));
-
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("incomingCall", {
-          fromUserId: socket.userId,
+          fromUserId: socket.user._id,   // ✅ FIXED
           offer,
           callType,
         });
