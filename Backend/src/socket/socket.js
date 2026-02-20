@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const initializeSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.LOCAL_HOST,
+      origin: process.env.NETLIFY_FRONTEND,
       credentials: true,
     },
   });
