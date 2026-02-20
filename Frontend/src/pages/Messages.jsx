@@ -208,8 +208,8 @@ export default function Messages() {
     if (!currentChat || !text.trim()) return;
 
     const receiverId = currentChat.members.find(
-      (m) => m !== user._id
-    );
+      (m) => m._id !== user._id
+    )?._id;
 
     // Create temporary message for instant display
     const tempMessage = {
@@ -302,7 +302,7 @@ export default function Messages() {
 
   // Get current chat friend
   const currentChatFriend = currentChat?.members.find(
-    (m) => m_id !== user._id
+    (m) => m._id !== user._id
   );
 
   // Format time
@@ -336,6 +336,8 @@ export default function Messages() {
     setSelectedCallType(type);
     setShowCallModal(true);
   };
+
+
 
   const acceptCall = () => {
     setSelectedCallType(callTypeIncoming);
