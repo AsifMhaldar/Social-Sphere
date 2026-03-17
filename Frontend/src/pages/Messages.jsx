@@ -1,13 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import { useSelector } from "react-redux";
-import { connectSocket, getSocket, disconnectSocket } from "../utils/socket";
+import { connectSocket, getSocket } from "../utils/socket";
 import {
   getUserConversations,
   getMessages,
   sendMessage,
   createConversation,
   getAllUsers,
-  markMessagesAsSeen
 } from "../utils/chatApi";
 import CallModal from "../Components/CallModal.jsx";
 
@@ -30,13 +29,11 @@ export default function Messages() {
   
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
 
   const [showCallModal, setShowCallModal] = useState(false);
   const [selectedCallType, setSelectedCallType] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
   const [callTypeIncoming, setCallTypeIncoming] = useState(null);
-  const [callFriend, setCallFriend] = useState(null);
 
   // Check if mobile on resize
   useEffect(() => {
@@ -53,24 +50,21 @@ export default function Messages() {
   }, []);
 
   // Auto scroll to bottom
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  };
-
   // =============================
-  // LOAD USERS AND CONNECT SOCKET
+  // LOAD USERS
   // =============================
   useEffect(() => {
     if (!user?._id) return;
 
-    const initializeData = async () => {
-      setLoading(true);
+    const loadData = async () => {
       try {
         const [usersRes, convRes] = await Promise.all([
           getAllUsers(),
@@ -79,21 +73,13 @@ export default function Messages() {
         
         setUsers(usersRes.data.filter((u) => u._id !== user._id));
         setConversations(convRes.data);
-        
-        // Connect socket after loading user data
-        connectSocket();
       } catch (error) {
         console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
-    initializeData();
-
-    return () => {
-      disconnectSocket();
-    };
+    loadData();
+    connectSocket();
   }, [user]);
 
   // =============================
@@ -103,16 +89,12 @@ export default function Messages() {
     const socket = getSocket();
     if (!socket) return;
 
-    // Online users handler
-    socket.on("getOnlineUsers", (onlineUserIds) => {
-      setOnlineUsers(onlineUserIds);
-    });
+    socket.on("getOnlineUsers", setOnlineUsers);
 
-    // Receive message handler
     socket.on("receiveMessage", (data) => {
       if (!data) return;
 
-      // Update messages in current chat
+      // Update chat window
       setMessages((prev) => {
         const exists = prev.find((msg) => msg._id === data._id);
         if (exists) return prev;
@@ -120,105 +102,78 @@ export default function Messages() {
         if (currentChat && data.conversationId === currentChat._id) {
           return [...prev, data];
         }
+
         return prev;
       });
 
-      // Update conversation list
+      // 🔥 Update conversation sidebar instantly
       setConversations((prev) =>
         prev.map((conv) =>
           conv._id === data.conversationId
             ? {
                 ...conv,
                 lastMessage: data.text,
-                lastMessageTime: data.createdAt,
-                updatedAt: data.createdAt,
+                updatedAt: new Date(),
               }
             : conv
         )
       );
 
-      // Update unread count if not in current chat
+      // unread counter
       if (!currentChat || data.conversationId !== currentChat._id) {
         setUnreadCounts((prev) => ({
           ...prev,
           [data.conversationId]: (prev[data.conversationId] || 0) + 1,
         }));
       }
-
-      // Mark as seen if currently in this chat
-      if (currentChat && data.conversationId === currentChat._id) {
-        socket.emit("markMessagesAsSeen", {
-          conversationId: currentChat._id,
-          userId: user._id
-        });
-      }
     });
 
-    // Typing handler
-    socket.on("typing", ({ senderId, isTyping }) => {
-      if (senderId === currentChatFriend?._id) {
-        if (isTyping) {
-          setTypingUser(senderId);
-          // Clear after 3 seconds
-          setTimeout(() => setTypingUser(null), 3000);
-        } else {
-          setTypingUser(null);
-        }
-      }
+    socket.on("typing", (senderId) => {
+      setTypingUser(senderId);
+      setTimeout(() => setTypingUser(null), 3000);
     });
 
-    // Message seen handler
-    socket.on("messagesSeen", ({ conversationId, seenBy }) => {
-      if (currentChat?._id === conversationId) {
-        setMessages((prev) =>
-          prev.map((msg) => 
-            msg.sender !== user._id ? { ...msg, status: "seen" } : msg
-          )
-        );
-      }
+    socket.on("messageSeen", ({ conversationId }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.conversationId === conversationId
+            ? { ...msg, status: "seen" }
+            : msg
+        )
+      );
     });
 
-    // Call handlers
-    socket.on("incomingCall", ({ fromUserId, offer, callType, fromUser }) => {
-      setIncomingCall({ fromUserId, offer, fromUser });
+    socket.on("incomingCall", ({ fromUserId, offer, callType }) => {
+      setIncomingCall({ fromUserId, offer });
       setCallTypeIncoming(callType);
-    });
-
-    socket.on("callAccepted", () => {
-      setCallAccepted(true);
     });
 
     socket.on("callEnded", () => {
       setIncomingCall(null);
       setShowCallModal(false);
-      setCallFriend(null);
-    });
-
-    socket.on("callRejected", () => {
-      alert("Call was rejected");
-      setIncomingCall(null);
     });
 
     return () => {
       socket.off("getOnlineUsers");
       socket.off("receiveMessage");
       socket.off("typing");
-      socket.off("messagesSeen");
+      socket.off("messageSeen");
       socket.off("incomingCall");
-      socket.off("callAccepted");
       socket.off("callEnded");
-      socket.off("callRejected");
     };
-  }, [currentChat, currentChatFriend]);
+  }, []);
 
   // =============================
-  // OPEN CHAT
+  // OPEN CHAT - FIXED VERSION
   // =============================
   const openChatWithUser = async (selectedUser, event) => {
+    // Prevent event bubbling if event exists
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
+    
+    console.log('Opening chat with user:', selectedUser);
     
     if (!selectedUser?._id) {
       console.error('Invalid user object:', selectedUser);
@@ -235,36 +190,32 @@ export default function Messages() {
         receiverId: selectedUser._id,
       });
 
-      const conversation = convRes.data;
-      setCurrentChat(conversation);
+      console.log('Conversation created/fetched:', convRes.data);
+      setCurrentChat(convRes.data);
 
       // Get messages for this conversation
-      const messageRes = await getMessages(conversation._id);
+      const messageRes = await getMessages(convRes.data._id);
+      console.log('Messages loaded:', messageRes.data);
       setMessages(messageRes.data);
 
-      // Mark messages as seen
-      if (messageRes.data.length > 0) {
-        await markMessagesAsSeen(conversation._id, user._id);
-        
-        getSocket()?.emit("markMessagesAsSeen", {
-          conversationId: conversation._id,
-          userId: user._id,
-          senderId: selectedUser._id
-        });
-      }
+      // 🔥 Mark messages as seen
+      getSocket()?.emit("messageSeen", {
+        conversationId: convRes.data._id,
+        senderId: selectedUser._id,
+      });
 
-      // Reset unread count
+      // Reset unread count for this conversation
       setUnreadCounts((prev) => ({
         ...prev,
-        [conversation._id]: 0,
+        [convRes.data._id]: 0,
       }));
 
-      // On mobile, hide sidebar
+      // On mobile, hide sidebar when chat is opened
       if (isMobile) {
         setSidebarOpen(false);
       }
       
-      // Focus input
+      // Focus input after opening chat
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -276,43 +227,51 @@ export default function Messages() {
   };
 
   // =============================
+  // GO BACK TO SIDEBAR (MOBILE)
+  // =============================
+  const goBackToSidebar = () => {
+    setSidebarOpen(true);
+  };
+
+  // =============================
   // SEND MESSAGE
   // =============================
   const handleSend = async (text) => {
     if (!currentChat || !text.trim()) return;
 
-    const receiver = currentChat.members.find(
+    const receiverId = currentChat.members.find(
       (m) => m._id !== user._id
-    );
+    )?._id;
 
-    const tempId = Date.now().toString();
+    // Create temporary message for instant display
     const tempMessage = {
-      _id: tempId,
+      _id: Date.now().toString(),
       conversationId: currentChat._id,
       sender: user._id,
       text: text.trim(),
       createdAt: new Date().toISOString(),
-      status: 'sending'
+      status: 'sent'
     };
 
+    // Add to UI immediately
     setMessages((prev) => [...prev, tempMessage]);
-    scrollToBottom();
 
     try {
+      // Send to server
       const messageData = {
         conversationId: currentChat._id,
         sender: user._id,
         text: text.trim(),
-        receiverId: receiver._id
       };
 
       const res = await sendMessage(messageData);
+      console.log('Message sent successfully:', res);
 
-      // Replace temp message
+      // Replace temp message with real one
       setMessages((prev) => 
         prev.map((msg) => 
-          msg._id === tempId 
-            ? { ...res.data, status: onlineUsers.includes(receiver._id) ? 'delivered' : 'sent' } 
+          msg._id === tempMessage._id 
+            ? { ...res.data, status: 'sent' } 
             : msg
         )
       );
@@ -320,31 +279,28 @@ export default function Messages() {
       // Emit socket event
       getSocket()?.emit("sendMessage", {
         conversationId: currentChat._id,
-        receiverId: receiver._id,
         senderId: user._id,
+        receiverId,
         text: text.trim(),
-        message: res.data,
+        messageId: res.data._id,
       });
 
-      // Update conversation list
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv._id === currentChat._id
-            ? {
-                ...conv,
-                lastMessage: text.trim(),
-                lastMessageTime: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            : conv
-        )
-      );
-
+      // If receiver is online, update status after short delay
+      if (isUserOnline(receiverId)) {
+        setTimeout(() => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg._id === res.data._id ? { ...msg, status: 'delivered' } : msg
+            )
+          );
+        }, 1000);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      // Mark message as failed
       setMessages((prev) =>
         prev.map((msg) =>
-          msg._id === tempId ? { ...msg, status: 'failed' } : msg
+          msg._id === tempMessage._id ? { ...msg, status: 'failed' } : msg
         )
       );
     }
@@ -353,61 +309,46 @@ export default function Messages() {
   // =============================
   // HANDLE TYPING
   // =============================
-  const handleTyping = () => {
-    if (!currentChat) return;
+  const typingTimeout = useRef(null);
 
-    const receiver = currentChat.members.find(
-      (m) => m._id !== user._id
+  const handleTyping = () => {
+    const receiverId = currentChat?.members.find(
+      (m) => (typeof m === "string" ? m : m._id) !== user._id
     );
 
-    if (!receiver) return;
+    if (!receiverId) return;
 
-    // Clear previous timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Emit typing started
     getSocket()?.emit("typing", {
-      receiverId: receiver._id,
-      senderId: user._id,
-      isTyping: true,
-      conversationId: currentChat._id
+      receiverId: typeof receiverId === "string" ? receiverId : receiverId?._id,
     });
 
-    // Set timeout to stop typing
-    typingTimeoutRef.current = setTimeout(() => {
-      getSocket()?.emit("typing", {
-        receiverId: receiver._id,
-        senderId: user._id,
-        isTyping: false,
-        conversationId: currentChat._id
-      });
+    clearTimeout(typingTimeout.current);
+
+    typingTimeout.current = setTimeout(() => {
+      setTypingUser(null);
     }, 2000);
   };
 
   // =============================
   // CHECK ONLINE
   // =============================
-  const isUserOnline = (userId) => {
-    return onlineUsers.includes(userId?.toString());
-  };
+  const isUserOnline = (userId) =>
+    onlineUsers.includes(userId);
 
   // Filter users based on search
   const filteredUsers = users.filter(u => 
     u.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Get current chat friend
   const currentChatFriend = currentChat?.members.find(
-    (m) => m._id !== user._id
+    (m) => m !== user._id
   );
+
 
   // Format time
   const formatMessageTime = (timestamp) => {
-    if (!timestamp) return '';
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -415,8 +356,6 @@ export default function Messages() {
   // Message status component
   const MessageStatus = ({ status }) => {
     switch(status) {
-      case 'sending':
-        return <span className="text-[11px] text-gray-400">⏳</span>;
       case 'sent':
         return <span className="text-[11px] text-gray-400">✓</span>;
       case 'delivered':
@@ -430,36 +369,51 @@ export default function Messages() {
     }
   };
 
-  // Start call function
   const startCall = (type) => {
+    console.log("🔥 currentChat:", currentChat);
+    console.log("🔥 members:", currentChat?.members);
+    console.log("🔥 user._id:", user?._id);
+
     if (!currentChatFriend) return;
 
-    setCallFriend(currentChatFriend);
+    const friend = currentChat.members.find((m) => {
+      console.log("Checking member:", m);
+      console.log("Type:", typeof m);
+      console.log("m._id:", m?._id);
+
+      return (typeof m === "string" ? m : m._id) !== user._id;
+    });
+
+    console.log("🔥 Found friend:", friend);
+
+    if (!friend) {
+      console.log("❌ No valid friend selected for call");
+      return;
+    }
+
     setSelectedCallType(type);
     setShowCallModal(true);
   };
 
-  // Accept incoming call
-  const acceptIncomingCall = () => {
-    setCallFriend(incomingCall.fromUser);
+
+
+
+  const acceptCall = () => {
     setSelectedCallType(callTypeIncoming);
     setShowCallModal(true);
-    setIncomingCall(null);
+
+    // clear AFTER modal opens
+    setTimeout(() => {
+      setIncomingCall(null);
+    }, 0);
   };
 
-  // Reject incoming call
-  const rejectIncomingCall = () => {
-    getSocket()?.emit("rejectCall", {
+
+  const rejectCall = () => {
+    getSocket()?.emit("endCall", {
       toUserId: incomingCall.fromUserId,
     });
     setIncomingCall(null);
-  };
-
-  // Close call modal
-  const closeCallModal = () => {
-    setShowCallModal(false);
-    setCallFriend(null);
-    setSelectedCallType(null);
   };
 
   return (
@@ -535,8 +489,6 @@ export default function Messages() {
               conversations.map((conv) => {
                 const friend = conv.members.find((m) => m._id !== user._id);
                 const isSelected = selectedUserId === friend?._id;
-                const lastMessage = conv.lastMessage || "No messages yet";
-                const lastMessageTime = conv.lastMessageTime || conv.updatedAt;
                 
                 return (
                   <div
@@ -558,14 +510,14 @@ export default function Messages() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center">
-                        <p className="font-semibold text-gray-800">{friend?.firstName} {friend?.lastName}</p>
+                        <p className="font-semibold text-gray-800">{friend?.firstName}</p>
                         <p className="text-xs text-gray-400">
-                          {lastMessageTime ? formatMessageTime(lastMessageTime) : ''}
+                          {conv.updatedAt ? formatMessageTime(conv.updatedAt) : ''}
                         </p>
                       </div>
                       <div className="flex justify-between items-center">
                         <p className="text-sm text-gray-500 truncate">
-                          {lastMessage}
+                          {conv.lastMessage || "No messages yet"}
                         </p>
                         {unreadCounts[conv._id] > 0 && (
                           <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">
@@ -647,7 +599,7 @@ export default function Messages() {
                 {/* Back button - only visible on mobile */}
                 {isMobile && (
                   <button
-                    onClick={() => setSidebarOpen(true)}
+                    onClick={goBackToSidebar}
                     className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
                   >
                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -732,7 +684,7 @@ export default function Messages() {
                             isOwnMessage ? 'text-indigo-200' : 'text-gray-400'
                           }`}>
                             <span>{formatMessageTime(msg.createdAt)}</span>
-                            {showStatus && (
+                            {isOwnMessage && (
                               <MessageStatus status={msg.status || 'sent'} />
                             )}
                           </div>
@@ -802,23 +754,20 @@ export default function Messages() {
       {incomingCall && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-xl text-center w-80">
-            <h2 className="text-lg font-semibold mb-2">
+            <h2 className="text-lg font-semibold mb-4">
               Incoming {callTypeIncoming} Call
             </h2>
-            <p className="text-gray-600 mb-4">
-              From: {incomingCall.fromUser?.firstName} {incomingCall.fromUser?.lastName}
-            </p>
 
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-6">
               <button
-                onClick={acceptIncomingCall}
+                onClick={acceptCall}
                 className="bg-green-600 text-white px-6 py-2 rounded-full hover:bg-green-700 transition-colors"
               >
                 Accept
               </button>
 
               <button
-                onClick={rejectIncomingCall}
+                onClick={rejectCall}
                 className="bg-red-600 text-white px-6 py-2 rounded-full hover:bg-red-700 transition-colors"
               >
                 Reject
@@ -829,14 +778,23 @@ export default function Messages() {
       )}
 
       {/* Call Modal */}
-      {showCallModal && callFriend && (
+      {showCallModal && (
         <CallModal
           user={user}
-          friend={callFriend}
-          callType={selectedCallType}
+          friend={
+            incomingCall
+              ? incomingCall.fromUserId
+              : currentChatFriend
+          }
+          callType={
+            incomingCall ? callTypeIncoming : selectedCallType
+          }
           incomingOffer={incomingCall?.offer || null}
           isOpen={showCallModal}
-          onClose={closeCallModal}
+          onClose={() => {
+            setShowCallModal(false);
+            setIncomingCall(null);
+          }}
         />
       )}
     </div>
