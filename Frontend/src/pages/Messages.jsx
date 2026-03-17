@@ -92,16 +92,25 @@ export default function Messages() {
     socket.on("getOnlineUsers", setOnlineUsers);
 
     socket.on("receiveMessage", (data) => {
+      if (!data) return;
 
-      if (currentChat && data.conversationId === currentChat._id) {
-        setMessages((prev) => [...prev, data]);
-      } else {
+      setMessages((prev) => {
+        const exists = prev.find((msg) => msg._id === data._id);
+        if (exists) return prev;
+
+        if (currentChat && data.conversationId === currentChat._id) {
+          return [...prev, data];
+        }
+
+        return prev;
+      });
+
+      if (!currentChat || data.conversationId !== currentChat._id) {
         setUnreadCounts((prev) => ({
           ...prev,
           [data.conversationId]: (prev[data.conversationId] || 0) + 1,
         }));
       }
-
     });
 
     socket.on("typing", (senderId) => {

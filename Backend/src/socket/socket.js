@@ -70,20 +70,26 @@ const initializeSocket = (server) => {
     // 💬 SEND MESSAGE
     // =============================
     socket.on("sendMessage", ({ conversationId, receiverId, text, messageId }) => {
-
       const receiverSocketId = onlineUsers.get(receiverId?.toString());
 
+      const messageData = {
+        _id: messageId,
+        conversationId,
+        sender: socket.user._id,
+        text,
+        createdAt: new Date(),
+        status: "delivered",
+      };
+
+      console.log("📨 Sending message:", messageData);
+
+      // send to receiver
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit("receiveMessage", {
-          _id: messageId,
-          conversationId,
-          sender: userId,
-          text,
-          createdAt: new Date(),
-          status: "delivered",
-        });
+        io.to(receiverSocketId).emit("receiveMessage", messageData);
       }
 
+      // send back to sender
+      socket.emit("receiveMessage", messageData);
     });
 
     // =============================
