@@ -1,16 +1,38 @@
-import axiosClient from "./axiosClient";
+import axios from "axios";
 
-export const getUserConversations = (userId) =>
-  axiosClient.get(`/chat/conversation/${userId}`);
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-export const getMessages = (conversationId) =>
-  axiosClient.get(`/chat/message/${conversationId}`);
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+});
 
-export const sendMessage = (data) =>
-  axiosClient.post(`/chat/message`, data);
+// Get all users except current user
+export const getAllUsers = async () => {
+  return api.get("/users");
+};
 
-export const createConversation = (data) =>
-  axiosClient.post(`/chat/conversation`, data);
+// Get user conversations
+export const getUserConversations = async (userId) => {
+  return api.get(`/conversations/${userId}`);
+};
 
-export const getAllUsers = () =>
-  axiosClient.get(`/user/all`);
+// Create or get conversation
+export const createConversation = async ({ senderId, receiverId }) => {
+  return api.post("/conversations", { senderId, receiverId });
+};
+
+// Get messages for conversation
+export const getMessages = async (conversationId) => {
+  return api.get(`/messages/${conversationId}`);
+};
+
+// Send message
+export const sendMessage = async (messageData) => {
+  return api.post("/messages", messageData);
+};
+
+// Mark messages as seen
+export const markMessagesAsSeen = async (conversationId, userId) => {
+  return api.put(`/messages/seen/${conversationId}`, { userId });
+};

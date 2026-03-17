@@ -14,6 +14,7 @@ const initializeSocket = (server) => {
 
   // userId -> socketId
   const onlineUsers = new Map();
+  const userDetails = new Map(); // Store user details for calls
 
   // =============================
   // 🔐 SOCKET AUTH MIDDLEWARE
@@ -43,8 +44,7 @@ const initializeSocket = (server) => {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_KEY);
-
-      socket.user = decoded; // attach user info
+      socket.user = decoded;
       next();
     } catch (err) {
       console.log("❌ Socket auth error:", err.message);
@@ -56,73 +56,97 @@ const initializeSocket = (server) => {
   // CONNECTION
   // =============================
   io.on("connection", (socket) => {
-    const userId = socket.user._id;
+    const userId = socket.user._id.toString();
+    const userData = {
+      _id: socket.user._id,
+      firstName: socket.user.firstName,
+      lastName: socket.user.lastName,
+      email: socket.user.email
+    };
 
     console.log("🔥 Socket connected:", userId);
 
-    onlineUsers.set(userId.toString(), socket.id);
+    onlineUsers.set(userId, socket.id);
+    userDetails.set(userId, userData);
 
     console.log("👥 Online Users:", Array.from(onlineUsers.keys()));
 
+    // Send online users to all connected clients
     io.emit("getOnlineUsers", Array.from(onlineUsers.keys()));
 
     // =============================
     // 💬 SEND MESSAGE
     // =============================
-    socket.on("sendMessage", ({ conversationId, receiverId, text, messageId }) => {
+    socket.on("sendMessage", ({ conversationId, receiverId, text, message }) => {
       const receiverSocketId = onlineUsers.get(receiverId?.toString());
 
       const messageData = {
-        _id: messageId,
+        _id: message._id,
         conversationId,
         sender: socket.user._id,
-        text,
-        createdAt: new Date(),
-        status: "delivered",
+        text: text,
+        createdAt: new Date().toISOString(),
+        status: receiverSocketId ? "delivered" : "sent",
       };
 
-      console.log("📨 Sending message:", messageData);
+      console.log("📨 Sending message to:", receiverId);
 
-      // send to receiver
+      // Send to receiver if online
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("receiveMessage", messageData);
       }
 
-      // send back to sender
+      // Send back to sender
       socket.emit("receiveMessage", messageData);
     });
 
-    socket.on("typing", ({ receiverId }) => {
+    // =============================
+    // ⌨️ TYPING INDICATOR
+    // =============================
+    socket.on("typing", ({ receiverId, isTyping, conversationId }) => {
       const receiverSocketId = onlineUsers.get(receiverId?.toString());
 
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit("typing", socket.user._id);
+        io.to(receiverSocketId).emit("typing", {
+          senderId: socket.user._id,
+          isTyping,
+          conversationId
+        });
       }
     });
 
-    socket.on("messageSeen", ({ conversationId, senderId }) => {
+    // =============================
+    // 👁️ MESSAGE SEEN
+    // =============================
+    socket.on("markMessagesAsSeen", ({ conversationId, userId, senderId }) => {
       const senderSocketId = onlineUsers.get(senderId?.toString());
 
       if (senderSocketId) {
-        io.to(senderSocketId).emit("messageSeen", { conversationId });
+        io.to(senderSocketId).emit("messagesSeen", {
+          conversationId,
+          seenBy: userId
+        });
       }
     });
-
 
     // =============================
     // 📞 CALL USER
     // =============================
     socket.on("callUser", ({ toUserId, offer, callType }) => {
-      console.log("📞 Call request:", toUserId);
+      console.log("📞 Call request from:", userId, "to:", toUserId);
 
       const receiverSocketId = onlineUsers.get(toUserId?.toString());
+      const callerDetails = userDetails.get(userId);
 
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("incomingCall", {
-          fromUserId: socket.user._id,
+          fromUserId: userId,
+          fromUser: callerDetails,
           offer,
           callType,
         });
+      } else {
+        socket.emit("callFailed", { reason: "User is offline" });
       }
     });
 
@@ -130,12 +154,13 @@ const initializeSocket = (server) => {
     // 📞 ANSWER CALL
     // =============================
     socket.on("answerCall", ({ toUserId, answer }) => {
-      console.log("📤 Sending callAnswered to:", toUserId);
+      console.log("📤 Call answered for:", toUserId);
       const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("callAnswered", {
           answer,
+          fromUserId: userId
         });
       }
     });
@@ -149,6 +174,7 @@ const initializeSocket = (server) => {
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("iceCandidate", {
           candidate,
+          fromUserId: userId
         });
       }
     });
@@ -157,10 +183,26 @@ const initializeSocket = (server) => {
     // 🔚 END CALL
     // =============================
     socket.on("endCall", ({ toUserId }) => {
+      console.log("🔚 Call ended between:", userId, "and:", toUserId);
       const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit("callEnded");
+        io.to(receiverSocketId).emit("callEnded", {
+          fromUserId: userId
+        });
+      }
+    });
+
+    // =============================
+    // ❌ REJECT CALL
+    // =============================
+    socket.on("rejectCall", ({ toUserId }) => {
+      const receiverSocketId = onlineUsers.get(toUserId?.toString());
+
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("callRejected", {
+          fromUserId: userId
+        });
       }
     });
 
@@ -171,7 +213,9 @@ const initializeSocket = (server) => {
       console.log("❌ Socket disconnected:", userId);
       console.log("Reason:", reason);
 
-      onlineUsers.delete(userId.toString());
+      onlineUsers.delete(userId);
+      userDetails.delete(userId);
+      
       io.emit("getOnlineUsers", Array.from(onlineUsers.keys()));
     });
   });
