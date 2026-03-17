@@ -1,34 +1,27 @@
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
 let socket = null;
 
 export const connectSocket = () => {
-  if (!socket) {
-    socket = io(SOCKET_URL, {
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    });
+  if (socket) return socket; // ✅ prevent multiple connections
 
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
-    });
+  socket = io(import.meta.env.VITE_API_URL, {
+    withCredentials: true,
+    transports: ["websocket"], // 🔥 force websocket only
+  });
 
-    socket.on("connect_error", (err) => {
-      console.error("Socket connection error:", err);
-    });
+  socket.on("connect", () => {
+    console.log("✅ Socket connected:", socket.id);
+  });
 
-    socket.on("disconnect", (reason) => {
-      console.log("Socket disconnected:", reason);
-    });
-  }
+  socket.on("disconnect", (reason) => {
+    console.log("❌ Socket disconnected:", reason);
+  });
+
   return socket;
 };
 
-export const getSocket = () => {
-  return socket;
-};
+export const getSocket = () => socket;
 
 export const disconnectSocket = () => {
   if (socket) {
