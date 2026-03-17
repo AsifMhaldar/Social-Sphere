@@ -92,6 +92,23 @@ const initializeSocket = (server) => {
       socket.emit("receiveMessage", messageData);
     });
 
+    socket.on("typing", ({ receiverId }) => {
+      const receiverSocketId = onlineUsers.get(receiverId?.toString());
+
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("typing", socket.user._id);
+      }
+    });
+
+    socket.on("messageSeen", ({ conversationId, senderId }) => {
+      const senderSocketId = onlineUsers.get(senderId?.toString());
+
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messageSeen", { conversationId });
+      }
+    });
+
+
     // =============================
     // 📞 CALL USER
     // =============================

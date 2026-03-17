@@ -94,6 +94,7 @@ export default function Messages() {
     socket.on("receiveMessage", (data) => {
       if (!data) return;
 
+      // Update chat window
       setMessages((prev) => {
         const exists = prev.find((msg) => msg._id === data._id);
         if (exists) return prev;
@@ -105,6 +106,20 @@ export default function Messages() {
         return prev;
       });
 
+      // 🔥 Update conversation sidebar instantly
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === data.conversationId
+            ? {
+                ...conv,
+                lastMessage: data.text,
+                updatedAt: new Date(),
+              }
+            : conv
+        )
+      );
+
+      // unread counter
       if (!currentChat || data.conversationId !== currentChat._id) {
         setUnreadCounts((prev) => ({
           ...prev,
@@ -182,6 +197,12 @@ export default function Messages() {
       const messageRes = await getMessages(convRes.data._id);
       console.log('Messages loaded:', messageRes.data);
       setMessages(messageRes.data);
+
+      // 🔥 Mark messages as seen
+      getSocket()?.emit("messageSeen", {
+        conversationId: convRes.data._id,
+        senderId: selectedUser._id,
+      });
 
       // Reset unread count for this conversation
       setUnreadCounts((prev) => ({
@@ -288,15 +309,24 @@ export default function Messages() {
   // =============================
   // HANDLE TYPING
   // =============================
+  const typingTimeout = useRef(null);
+
   const handleTyping = () => {
     const receiverId = currentChat?.members.find(
-      (m) => m._id !== user._id
-    )?._id;
+      (m) => (typeof m === "string" ? m : m._id) !== user._id
+    );
+
+    if (!receiverId) return;
 
     getSocket()?.emit("typing", {
-      senderId: user._id,
-      receiverId,
+      receiverId: typeof receiverId === "string" ? receiverId : receiverId?._id,
     });
+
+    clearTimeout(typingTimeout.current);
+
+    typingTimeout.current = setTimeout(() => {
+      setTypingUser(null);
+    }, 2000);
   };
 
   // =============================
