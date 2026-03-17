@@ -4,7 +4,10 @@ const jwt = require("jsonwebtoken");
 const initializeSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.NETLIFY_FRONTEND,
+      origin: [
+        "http://localhost:5173",
+        process.env.NETLIFY_FRONTEND
+      ],
       credentials: true,
     },
   });
@@ -66,27 +69,34 @@ const initializeSocket = (server) => {
     // =============================
     // 💬 SEND MESSAGE
     // =============================
-    socket.on("sendMessage", ({ conversationId, receiverId, text }) => {
+    socket.on("sendMessage", ({ conversationId, receiverId, text, messageId }) => {
+
       const receiverSocketId = onlineUsers.get(receiverId?.toString());
 
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("receiveMessage", {
+          _id: messageId,
           conversationId,
-          senderId: userId,
+          sender: userId,
           text,
+          createdAt: new Date(),
+          status: "delivered",
         });
       }
+
     });
 
     // =============================
     // 📞 CALL USER
     // =============================
     socket.on("callUser", ({ toUserId, offer, callType }) => {
+      console.log("📞 Call request:", toUserId);
+
       const receiverSocketId = onlineUsers.get(toUserId?.toString());
 
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("incomingCall", {
-          fromUserId: socket.user._id,   // ✅ FIXED
+          fromUserId: socket.user._id,
           offer,
           callType,
         });
@@ -134,11 +144,11 @@ const initializeSocket = (server) => {
     // =============================
     // ❌ DISCONNECT
     // =============================
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
       console.log("❌ Socket disconnected:", userId);
+      console.log("Reason:", reason);
 
       onlineUsers.delete(userId.toString());
-
       io.emit("getOnlineUsers", Array.from(onlineUsers.keys()));
     });
   });

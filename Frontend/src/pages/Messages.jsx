@@ -92,14 +92,16 @@ export default function Messages() {
     socket.on("getOnlineUsers", setOnlineUsers);
 
     socket.on("receiveMessage", (data) => {
+
       if (currentChat && data.conversationId === currentChat._id) {
-        setMessages((prev) => [...prev, { ...data, status: "delivered" }]);
+        setMessages((prev) => [...prev, data]);
       } else {
         setUnreadCounts((prev) => ({
           ...prev,
           [data.conversationId]: (prev[data.conversationId] || 0) + 1,
         }));
       }
+
     });
 
     socket.on("typing", (senderId) => {

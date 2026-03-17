@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { getSocket, connectSocket } from "../utils/socket";
+import { getSocket } from "../utils/socket";
 
 export default function CallModal({
   user,
   friend,
   callType,
-  incomingOffer, // if exists → receiver side
+  incomingOffer,
   isOpen,
   onClose,
 }) {
@@ -23,41 +23,42 @@ export default function CallModal({
 
   const servers = {
     iceServers: [
+      { urls: "stun:stun.relay.metered.ca:80" },
       {
-        urls: "stun:stun.l.google.com:19302",
+        urls: "turn:global.relay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject",
       },
       {
-        urls: "turn:openrelay.metered.ca:80",
+        urls: "turns:global.relay.metered.ca:443",
         username: "openrelayproject",
         credential: "openrelayproject",
       },
     ],
   };
 
-  // ================================
+  // =================================
   // INITIAL START
-  // ================================
+  // =================================
   useEffect(() => {
     if (!isOpen) return;
 
     if (incomingOffer) {
-      // Receiver side
       setIsRinging(true);
 
       if (ringtoneRef.current) {
         ringtoneRef.current.play().catch(() => {});
       }
     } else {
-      // Caller side
       startOutgoingCall();
     }
 
     return () => cleanup();
   }, [isOpen]);
 
-  // ================================
-  // OUTGOING CALL (Caller)
-  // ================================
+  // =================================
+  // CALLER
+  // =================================
   const startOutgoingCall = async () => {
     try {
       localStream.current = await navigator.mediaDevices.getUserMedia({
@@ -71,6 +72,7 @@ export default function CallModal({
 
       peerConnection.current = new RTCPeerConnection(servers);
 
+      // 🔥 ADD TRACKS (important)
       localStream.current.getTracks().forEach((track) => {
         peerConnection.current.addTrack(track, localStream.current);
       });
@@ -90,6 +92,15 @@ export default function CallModal({
         }
       };
 
+      peerConnection.current.onconnectionstatechange = () => {
+        const state = peerConnection.current.connectionState;
+        console.log("Connection state:", state);
+
+        if (state === "disconnected" || state === "failed") {
+          endCall();
+        }
+      };
+
       const offer = await peerConnection.current.createOffer();
       await peerConnection.current.setLocalDescription(offer);
 
@@ -99,16 +110,24 @@ export default function CallModal({
         callType,
       });
 
-
       setIsRinging(true);
+
+      // 🔥 Call timeout (30 sec)
+      setTimeout(() => {
+        if (!callAccepted) {
+          console.log("Call timeout");
+          endCall();
+        }
+      }, 30000);
+
     } catch (err) {
       console.error("Outgoing call error:", err);
     }
   };
 
-  // ================================
-  // ACCEPT CALL (Receiver)
-  // ================================
+  // =================================
+  // RECEIVER
+  // =================================
   const acceptCall = async () => {
     try {
       setCallAccepted(true);
@@ -146,12 +165,23 @@ export default function CallModal({
         }
       };
 
+      peerConnection.current.onconnectionstatechange = () => {
+        const state = peerConnection.current.connectionState;
+        console.log("Receiver state:", state);
+
+        if (state === "failed" || state === "disconnected") {
+          endCall();
+        }
+      };
+
       await peerConnection.current.setRemoteDescription(
         new RTCSessionDescription(incomingOffer)
       );
+
       for (const candidate of pendingCandidates.current) {
         await peerConnection.current.addIceCandidate(candidate);
       }
+
       pendingCandidates.current = [];
 
       const answer = await peerConnection.current.createAnswer();
@@ -163,23 +193,23 @@ export default function CallModal({
       });
 
       startTimer();
+
     } catch (err) {
       console.error("Accept call error:", err);
     }
   };
 
-  // ================================
-  // SOCKET LISTENERS
-  // ================================
+  // =================================
+  // SOCKET EVENTS
+  // =================================
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
     socket.on("callAnswered", async ({ answer }) => {
-       console.log("🔥 CALL ANSWER RECEIVED");
-      if (!peerConnection.current) return;
-
       try {
+        if (!peerConnection.current) return;
+
         if (!peerConnection.current.remoteDescription) {
           await peerConnection.current.setRemoteDescription(
             new RTCSessionDescription(answer)
@@ -188,36 +218,31 @@ export default function CallModal({
           for (const candidate of pendingCandidates.current) {
             await peerConnection.current.addIceCandidate(candidate);
           }
-          pendingCandidates.current = [];
 
+          pendingCandidates.current = [];
         }
 
-        setIsRinging(false);
         setCallAccepted(true);
+        setIsRinging(false);
         startTimer();
+
       } catch (err) {
         console.log("Answer error:", err);
       }
     });
 
+    socket.on("iceCandidate", async (data) => {
+      const candidate = data?.candidate;
+      if (!candidate || !peerConnection.current) return;
 
-    socket.on("iceCandidate", async ({ candidate }) => {
-      try {
-        if (!peerConnection.current) return;
+      const iceCandidate = new RTCIceCandidate(candidate);
 
-        const iceCandidate = new RTCIceCandidate(candidate);
-
-        if (peerConnection.current.remoteDescription) {
-          await peerConnection.current.addIceCandidate(iceCandidate);
-        } else {
-          pendingCandidates.current.push(iceCandidate);
-        }
-      } catch (err) {
-        console.log("ICE error:", err);
+      if (peerConnection.current.remoteDescription) {
+        await peerConnection.current.addIceCandidate(iceCandidate);
+      } else {
+        pendingCandidates.current.push(iceCandidate);
       }
     });
-
-
 
     socket.on("callEnded", () => {
       cleanup();
@@ -231,10 +256,9 @@ export default function CallModal({
     };
   }, []);
 
-
-  // ================================
+  // =================================
   // TIMER
-  // ================================
+  // =================================
   const startTimer = () => {
     timerRef.current = setInterval(() => {
       setCallTimer((prev) => prev + 1);
@@ -247,22 +271,24 @@ export default function CallModal({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // ================================
+  // =================================
   // CLEANUP
-  // ================================
+  // =================================
   const cleanup = () => {
     clearInterval(timerRef.current);
+
     setCallTimer(0);
     setCallAccepted(false);
     setIsRinging(false);
 
-    // 🔥 FIX: Stop ringtone properly
     if (ringtoneRef.current) {
       ringtoneRef.current.pause();
       ringtoneRef.current.currentTime = 0;
     }
 
     if (peerConnection.current) {
+      peerConnection.current.ontrack = null;
+      peerConnection.current.onicecandidate = null;
       peerConnection.current.close();
       peerConnection.current = null;
     }
@@ -273,9 +299,11 @@ export default function CallModal({
     }
   };
 
-
   const endCall = () => {
-    getSocket()?.emit("endCall", { toUserId: typeof friend === "string" ? friend : friend._id });
+    getSocket()?.emit("endCall", {
+      toUserId: typeof friend === "string" ? friend : friend._id,
+    });
+
     cleanup();
     onClose();
   };
@@ -285,14 +313,12 @@ export default function CallModal({
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-white z-50">
 
-      {/* Ringtone */}
       <audio
         ref={ringtoneRef}
         src="https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg"
         loop
       />
 
-      {/* Ringing UI */}
       {isRinging && !callAccepted && (
         <>
           <h2 className="text-xl mb-6">
@@ -319,7 +345,6 @@ export default function CallModal({
         </>
       )}
 
-      {/* Active Call */}
       {callAccepted && (
         <>
           <h2 className="mb-4 text-lg">{formatTime()}</h2>
@@ -331,6 +356,7 @@ export default function CallModal({
                 autoPlay
                 className="w-3/4 rounded-xl mb-4"
               />
+
               <video
                 ref={localVideoRef}
                 autoPlay
